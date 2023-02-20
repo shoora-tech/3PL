@@ -1,29 +1,29 @@
 version: "3.8"
 services:
-  nginx_shoora:
-    image: nginx
-    volumes:
-      - '../../nginx/default.conf:/etc/nginx/nginx.conf'
-      - '../../nginx/ssl:/etc/nginx/ssl'
-    ports:
-      - '8888:80' #local:docker
-      - '554:443'
-    depends_on:
-      - tpl
+  # nginx_tpl:
+  #   image: nginx
+  #   volumes:
+  #     - '../../nginx/default.conf:/etc/nginx/nginx.conf'
+  #     - '../../nginx/ssl:/etc/nginx/ssl'
+  #   ports:
+  #     - '8888:80' #local:docker
+  #     - '554:443'
+  #   depends_on:
+  #     - tpl
 
 
   #django app
   tpl:
     image: python:3.7
     volumes:
-      - ../../auth:/app
+      - ./:/app
     environment:
       - PYTHONUNBUFFERED=1
     command: |
       sh -c '
       cd /app
       pip install --upgrade pip
-      make api-deps
+      make deps
       make migrate
       python manage.py collectstatic --noinput
       python manage.py runserver 0.0.0.0:8000
