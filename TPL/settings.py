@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     # 3PL Modules
     "user",
     "components",
+    "process",
 
 ]
 
