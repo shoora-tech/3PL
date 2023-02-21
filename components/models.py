@@ -63,6 +63,9 @@ class Transporter(UUIDModel):
     poc_name = models.CharField(max_length=50)
     poc_phone = models.CharField(max_length=50)
 
+    def __str__(self):
+        return self.name
+
 
 class TransporterOrganizationFuel(UUIDModel):
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
@@ -75,16 +78,25 @@ class Vehicle(UUIDModel):
     vehicle_number = models.CharField(max_length=10)
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
 
+    def __str__(self):
+        return self.vehicle_number
+
 
 class Tanker(UUIDModel):
     tanker_number = models.CharField(max_length=10)
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.tanker_number
 
 
 class Driver(UUIDModel):
     name = models.CharField(max_length=50)
     phone = models.CharField(max_length=50)
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.name
 
 
 class Location(UUIDModel):
@@ -102,12 +114,40 @@ class Location(UUIDModel):
         max_length=10
     )
 
+    def __str__(self):
+        return self.name
+
 
 class Customer(UUIDModel):
     name = models.CharField(max_length=50)
     email = models.EmailField()
     phone = models.CharField(max_length=50)
     location = models.ManyToManyField(Location, related_name="locations")
+
+    def __str__(self):
+        return self.name
+
+
+class Unit(UUIDModel):
+    name = models.CharField(max_length=10)
+
+    def __str__(self):
+        return self.name
+
+
+class Manufacturer(UUIDModel):
+    name = models.CharField(max_length=10)
+
+    def __str__(self):
+        return self.name
+
+class Sellables(UUIDModel):
+    name = models.CharField(max_length=20)
+    manufacturer = models.ForeignKey(Manufacturer, on_delete=models.CASCADE, related_name="sellable")
+    price = models.FloatField()
+    currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="sellables")
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="sellables")
+    unit_price = models.FloatField()
 
     def __str__(self):
         return self.name

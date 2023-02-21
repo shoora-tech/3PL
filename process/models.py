@@ -34,18 +34,21 @@ class Nomination(UUIDModel):
     )
 
 
-class Advance(UUIDModel):
-    nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="advance")
-    advance_type = models.CharField(max_length=50)
-    quantity = models.FloatField(blank=True, null=True)
-    unit = models.CharField(blank=True, null=True, max_length=5)
-    cost = models.FloatField()
+class AdvanceOthers(UUIDModel):
+    nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="advance_others")
+    sellable = models.ForeignKey(Sellables, on_delete=models.CASCADE, related_name="advance_others")
+    quantity = models.FloatField()
+
+
+class AdvanceCash(UUIDModel):
+    nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="advance_cash")
+    currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="advance_cash")
+    amount = models.FloatField()
     
 
-
-class NominationStation(UUIDModel):
-    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="nomination_station")
-    nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="nomination_station")
+class AdvanceFuel(UUIDModel):
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="advance_fuel")
+    nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="advance_fuel")
     fuel_quantity = models.FloatField()
 
 
