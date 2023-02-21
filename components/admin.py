@@ -4,7 +4,11 @@ from django.contrib import admin
 from .models import *
 
 admin.site.register(Currency)
-admin.site.register(CurrencyExchange)
+
+@admin.register(CurrencyExchange)
+class AdvanceCashAdmin(admin.ModelAdmin):
+    list_display = ("from_currency", "to_currency", "exchange_rate")
+
 admin.site.register(Product)
 admin.site.register(Company)
 admin.site.register(Station)

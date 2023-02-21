@@ -17,9 +17,6 @@ class CurrencyExchange(UUIDModel):
     exchange_rate = models.IntegerField()
     from_currency = models.ForeignKey(Currency, related_name="from_currency", on_delete=models.CASCADE, blank=True, null=True)
     to_currency = models.ForeignKey(Currency, related_name="to_currency", on_delete=models.CASCADE, blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.exchange_rate} for {self.currency}"
     
     class Meta:
         verbose_name_plural = "Currency Exchange"
