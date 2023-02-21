@@ -4,6 +4,7 @@ from django.contrib import admin
 from .models import *
 
 admin.site.register(Currency)
+admin.site.register(CurrencyExchange)
 admin.site.register(Product)
 admin.site.register(Company)
 admin.site.register(Station)
@@ -14,4 +15,6 @@ admin.site.register(Vehicle)
 admin.site.register(Tanker)
 admin.site.register(Driver)
 admin.site.register(Customer)
-admin.site.register(CurrencyExchange)
+admin.site.register(Sellables)
+admin.site.register(Unit)
+admin.site.register(Manufacturer)

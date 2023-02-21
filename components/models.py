@@ -93,6 +93,10 @@ class Tanker(UUIDModel):
 class Driver(UUIDModel):
     name = models.CharField(max_length=50)
     phone = models.CharField(max_length=50)
+    passport_number = models.CharField(max_length=20, blank=True, null=True)
+    passport_validity = models.DateField(blank=True, null=True)
+    driving_license_number = models.CharField(max_length=50, blank=True, null=True)
+    driving_license_validity = models.DateField(blank=True, null=True)
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
 
     def __str__(self):
