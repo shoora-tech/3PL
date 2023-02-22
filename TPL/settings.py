@@ -82,24 +82,25 @@ WSGI_APPLICATION = 'TPL.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": ENV.str("DB_NAME", None),
-        "USER": ENV.str("DB_USER", None),
-        "PASSWORD": ENV.str("DB_PASSWORD", None),
-        "HOST": ENV.str("DB_HOST", None),
-        "PORT": ENV.str("DB_PORT", None),
+is_local_development = ENV.bool("LOCAL_DB", False)
+if is_local_development:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": ENV.str("DB_NAME", None),
+            "USER": ENV.str("DB_USER", None),
+            "PASSWORD": ENV.str("DB_PASSWORD", None),
+            "HOST": ENV.str("DB_HOST", None),
+            "PORT": ENV.str("DB_PORT", None),
+        }
+    }
 
 
 # Password validation
