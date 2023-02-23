@@ -59,17 +59,25 @@ class Transporter(UUIDModel):
     poc_email = models.EmailField()
     poc_name = models.CharField(max_length=50)
     poc_phone = models.CharField(max_length=50)
+    name_in_bank_TZS_account = models.CharField(max_length=50,blank=True, null=True)
+    bank_name_TZS_account = models.CharField(max_length=50,blank=True, null=True)
+    swift_code_TZS_account = models.CharField(max_length=20,blank=True, null=True)
+    account_number_TZS_account = models.IntegerField( blank=True, null=True)
+    name_in_bank_USD_account = models.CharField(max_length=50,blank=True, null=True)
+    bank_name_USD_account = models.CharField(max_length=50,blank=True, null=True)
+    swift_code_USD_account = models.CharField(max_length=20,blank=True, null=True)
+    account_number_USD_account = models.IntegerField( blank=True, null=True)
 
     def __str__(self):
         return self.name
 
 
-class TransporterOrganizationFuel(UUIDModel):
+class DiscountMaster(UUIDModel):
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     fuel_discount = models.FloatField(default=0)
     station = models.ForeignKey(Station, on_delete=models.CASCADE)
-
+    
 
 class Vehicle(UUIDModel):
     vehicle_number = models.CharField(max_length=10)

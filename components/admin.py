@@ -13,11 +13,28 @@ admin.site.register(Product)
 admin.site.register(Company)
 admin.site.register(Station)
 admin.site.register(Fuel)
-admin.site.register(Transporter)
-admin.site.register(TransporterOrganizationFuel)
-admin.site.register(Vehicle)
-admin.site.register(Tanker)
-admin.site.register(Driver)
+
+
+@admin.register(Transporter)
+class TransporterAdmin(admin.ModelAdmin):
+    list_display = ("name","poc_name","poc_email")
+
+
+admin.site.register(DiscountMaster)
+
+@admin.register(Vehicle)
+class VehicleAdmin(admin.ModelAdmin):
+    list_display = ("vehicle_number","transporter")
+
+@admin.register(Tanker)
+class TankerAdmin(admin.ModelAdmin):
+    list_display = ("tanker_number","transporter")
+
+@admin.register(Driver)
+class DriverAdmin(admin.ModelAdmin):
+    list_display = ("name","transporter")
+
+
 admin.site.register(Customer)
 admin.site.register(Sellables)
 admin.site.register(Unit)
