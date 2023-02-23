@@ -72,14 +72,12 @@ class Transporter(UUIDModel):
         return self.name
 
 
-class TransporterOrganizationFuel(UUIDModel):
+class DiscountMaster(UUIDModel):
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     fuel_discount = models.FloatField(default=0)
     station = models.ForeignKey(Station, on_delete=models.CASCADE)
-
-    class Meta:
-        verbose_name_plural = "Discount Master"
+    
 
 class Vehicle(UUIDModel):
     vehicle_number = models.CharField(max_length=10)

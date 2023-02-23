@@ -20,7 +20,7 @@ class TransporterAdmin(admin.ModelAdmin):
     list_display = ("name","poc_name","poc_email")
 
 
-admin.site.register(TransporterOrganizationFuel)
+admin.site.register(DiscountMaster)
 
 @admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):
