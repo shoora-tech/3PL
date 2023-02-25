@@ -11,7 +11,11 @@ class AdvanceCashAdmin(admin.ModelAdmin):
 
 admin.site.register(Product)
 admin.site.register(Company)
-admin.site.register(Station)
+@admin.register(Station)
+class StationAdmin(admin.ModelAdmin):
+    list_display = ("name","company")
+    
+
 admin.site.register(Fuel)
 
 

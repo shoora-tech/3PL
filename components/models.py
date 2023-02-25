@@ -1,6 +1,8 @@
 from django.db import models
 from TPL.models import UUIDModel
 from user.models import Organization
+import datetime
+from django.core.validators import MinValueValidator
 # Create your models here.
 
 class Currency(UUIDModel):
@@ -17,6 +19,8 @@ class CurrencyExchange(UUIDModel):
     exchange_rate = models.IntegerField()
     from_currency = models.ForeignKey(Currency, related_name="from_currency", on_delete=models.CASCADE, blank=True, null=True)
     to_currency = models.ForeignKey(Currency, related_name="to_currency", on_delete=models.CASCADE, blank=True, null=True)
+    date = models.DateField(validators=[MinValueValidator(datetime.date.today)],blank=True, null=True)
+
     
     class Meta:
         verbose_name_plural = "Currency Exchange"
@@ -131,7 +135,6 @@ class Customer(UUIDModel):
     name = models.CharField(max_length=50)
     email = models.EmailField()
     phone = models.CharField(max_length=50)
-    location = models.ManyToManyField(Location, related_name="locations", blank=True)
 
     def __str__(self):
         return self.name

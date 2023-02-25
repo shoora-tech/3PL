@@ -10,7 +10,7 @@ class Nomination(UUIDModel):
     APPROVED = "approved"
 
     NOMINATION_STATUS_CHOICES = (
-        (VALIDATION_PENDING, "Validation Pening"),
+        (VALIDATION_PENDING, "Validation Pending"),
         (APPROVAL_PENDING, "Approval Pending"),
         (APPROVED, "Approved"),
     )

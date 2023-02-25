@@ -27,6 +27,18 @@ class NominationAdmin(admin.ModelAdmin):
     inlines = (AdvanceCashInline, AdvanceFuelInline, AdvanceOthersInline)
 
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        elif request.user.operator:
+            return qs.filter(nomination_status= "approval_pending") 
+        elif request.user.validator:
+            return qs.filter(nomination_status = "validation_pending")    
+        else :
+            return qs
+
+
 @admin.register(AdvanceCash)
 class AdvanceCashAdmin(admin.ModelAdmin):
     list_display = ("nomination", "currency", "amount")
