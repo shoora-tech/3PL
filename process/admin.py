@@ -89,9 +89,10 @@ class NominationAdmin(admin.ModelAdmin):
         total = 0
         for f in fuel:
             fuel_price = Fuel.objects.filter(station=f.station).last()
-            qty = f.fuel_quantity
-            amount = qty * fuel_price.fuel_price
-            total += amount
+            if fuel_price:
+                qty = f.fuel_quantity
+                amount = qty * fuel_price.fuel_price
+                total += amount
         return total
 
 
