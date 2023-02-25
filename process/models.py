@@ -4,6 +4,21 @@ from components.models import *
 
 # Create your models here.
 
+class Fullfillment(UUIDModel):
+    off_loading_date = models.DateField()
+    off_loading_l20_quantity = models.FloatField()
+
+class Transit(UUIDModel):
+    loading_date = models.DateField()
+    loading_base_quantity = models.FloatField()
+    locading_l20_quantity = models.FloatField()
+    release_date = models.DateField()
+    fullfillment = models.ForeignKey(Fullfillment, on_delete=models.SET_NULL, related_name="transit", blank=True, null=True)
+    # loading_depot = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="transit")
+
+
+
+
 class Nomination(UUIDModel):
     VALIDATION_PENDING = "validation_pending"
     APPROVAL_PENDING = "approval_pending"
@@ -14,12 +29,21 @@ class Nomination(UUIDModel):
         (APPROVAL_PENDING, "Approval Pending"),
         (APPROVED, "Approved"),
     )
+    
+    NOMINATION = "nomination"
+    TRANSIT = "transit"
+    OFFLOAD = "offload"
+
+    STAGE_STATUS_CHOICES = (
+        (NOMINATION, "Nomination"),
+        (TRANSIT, "Transit"),
+        (OFFLOAD, "Offloaded"),
+    )
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE, related_name="nomination")
     tanker = models.ForeignKey(Tanker, on_delete=models.CASCADE, related_name="nomination")
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="nomination")
     driver = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name="nomination")
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="nomination")
-    transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE, related_name="nomination")
     source = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="source_nomination")
     destination = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="destination_nomination")
     # advance = models.ManyToManyField(Advance, related_name="nomination")
@@ -32,6 +56,13 @@ class Nomination(UUIDModel):
         default=VALIDATION_PENDING,
         max_length=20
     )
+    stage = models.CharField(
+        choices=STAGE_STATUS_CHOICES,
+        default=NOMINATION,
+        max_length=20
+    )
+    transit = models.ForeignKey(Transit, on_delete=models.SET_NULL, related_name="nomination", blank=True, null=True)
+    offload = models.ForeignKey(Fullfillment, on_delete=models.SET_NULL, related_name="nomination", blank=True, null=True)
 
 
 class AdvanceOthers(UUIDModel):
@@ -52,20 +83,7 @@ class AdvanceFuel(UUIDModel):
     fuel_quantity = models.FloatField()
 
 
-class Transit(UUIDModel):
-    loading_date = models.DateField()
-    loading_base_quantity = models.FloatField()
-    locading_l20_quantity = models.FloatField()
-    release_date = models.DateField()
-    nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="transit")
-    # loading_depot = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="transit")
 
-
-class Fullfillment(UUIDModel):
-    off_loading_date = models.DateField()
-    off_loading_l20_quantity = models.FloatField()
-    nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="fullfillment")
-    transit = models.ForeignKey(Transit, on_delete=models.CASCADE, related_name="fullfillment")
     # off_loading_depot = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="fullfillment")
 
 
