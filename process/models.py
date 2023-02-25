@@ -7,12 +7,21 @@ from components.models import *
 class Fullfillment(UUIDModel):
     off_loading_date = models.DateField()
     off_loading_l20_quantity = models.FloatField()
+    shortage = models.FloatField(blank=True, null=True)
+    tolerance = models.FloatField(blank=True, null=True) # tol_product * loading_qty
+    net_shortage = models.FloatField(blank=True, null=True) # shortahge - tolerance, neg == 0, +ve
+    shortage_value = models.FloatField(blank=True, null=True) # net_shoratge * product_cost
+    net_to_be_paid = models.FloatField(blank=True, null=True) # invoice_value - all_advance - shortage
+    profiltability = models.FloatField(blank=True, null=True) # (customer_price * l20_loaded) - invoice_value
 
 class Transit(UUIDModel):
     loading_date = models.DateField()
     loading_base_quantity = models.FloatField()
     locading_l20_quantity = models.FloatField()
     release_date = models.DateField()
+    invoice_value = models.FloatField(default=0)
+    invoice_number = models.CharField(null=True, blank=True, max_length=50)
+    invoice_date = models.DateField(blank=True, null=True)
     fullfillment = models.ForeignKey(Fullfillment, on_delete=models.SET_NULL, related_name="transit", blank=True, null=True)
     # loading_depot = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="transit")
 
@@ -61,6 +70,7 @@ class Nomination(UUIDModel):
         default=NOMINATION,
         max_length=20
     )
+    rate = models.FloatField(default=0, null=True, blank=True)
     transit = models.ForeignKey(Transit, on_delete=models.SET_NULL, related_name="nomination", blank=True, null=True)
     offload = models.ForeignKey(Fullfillment, on_delete=models.SET_NULL, related_name="nomination", blank=True, null=True)
 

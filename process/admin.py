@@ -108,31 +108,49 @@ class NominationAdmin(admin.ModelAdmin):
     def base_quantity(self, obj):
         if obj.transit:
             return obj.transit.loading_base_quantity
+        return None
 
     def l20_quantity(self, obj):
         if obj.transit:
             return obj.transit.locading_l20_quantity
+        return None
 
     def loading_date(self, obj):
         if obj.transit:
             return obj.transit.created_at
+        return None
 
     def release_date(self, obj):
         if obj.transit:
             return obj.transit.release_date
+        return None
 
-    def rate(self, obj):
-        return None
+    
     def invoice_value(self, obj):
+        if obj.transit:
+            return obj.transit.invoice_value
         return None
+
     def transporter_invoice_number(self, obj):
+        if obj.transit:
+            return obj.transit.invoice_number
         return None
+
     def transporter_invoice_date(self, obj):
+        if obj.transit:
+            return obj.transit.invoice_date
         return None
+        
     def ofloading_quantity(self, obj):
+        if obj.offload:
+            return obj.offload.off_loading_l20_quantity
         return None
+
     def offloading_date(self, obj):
+        if obj.offload:
+            return obj.offload.off_loading_date
         return None
+
     def shortage(self, obj):
         return None
     def tolerance(self, obj):
@@ -308,17 +326,66 @@ class TransitInline(admin.TabularInline):
 @admin.register(Transit)
 class TransmitAdmin(admin.ModelAdmin):
     inlines = (NominationInline,)
-    readonly_fields = ("fullfillment",)
+    readonly_fields = ("fullfillment", "invoice_value")
 
     def response_add(self, request, obj, post_url_continue=None):
         return redirect('/admin/process/nomination')
 
     def response_change(self, request, obj):
         return redirect('/admin/process/nomination')
+    
+    def save_model(self, request, obj, form, change):
+        # print("rate ", obj.__dict__)
+        nomination = Nomination.objects.get(transit__id=obj.id)
+        obj.invoice_value = nomination.rate * obj.locading_l20_quantity
+        super().save_model(request, obj, form, change)
 
 @admin.register(Fullfillment)
 class FullfillmentAdmin(admin.ModelAdmin):
     inlines = (NominationInline, TransitInline)
+
+    def save_model(self, request, obj, form, change):
+        # print("rate ", obj.__dict__)
+        nomination = Nomination.objects.get(offload__id=obj.id)
+        transit = Transit.objects.get(fullfillment__id=obj.id)
+        # shortage 
+        obj.shortage = transit.locading_l20_quantity - obj.off_loading_l20_quantity
+        # tolerance
+        obj.tolerance = nomination.product.tolerance * transit.locading_l20_quantity
+        # net shortage
+        net_shortage = obj.shortage - obj.tolerance
+        obj.net_shortage = 0 if net_shortage < 0 else net_shortage
+        obj.shortage_value = obj.net_shortage * nomination.product.cost
+        # All Advances
+        cash = nomination.advance_cash.all()
+        fuel = nomination.advance_fuel.all()
+        others = nomination.advance_others.all()
+        total = 0
+        for c in cash:
+            if c.currency.name != "USD":
+                exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=c.currency).exchange_rate
+                amount = c.amount * exchange_rate
+            else:
+                amount = c.amount
+            total += amount
+        
+        for f in fuel:
+            fuel_price = Fuel.objects.filter(station=f.station).last()
+            qty = f.fuel_quantity
+            amount = qty * fuel_price.fuel_price
+            total += amount
+        
+        for o in others:
+            qty = o.quantity
+            exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=o.sellable.currency).exchange_rate
+            amount = qty * o.sellable.unit_price *exchange_rate
+            total += amount
+        
+        obj.net_to_be_paid = transit.invoice_value - obj.shortage - total
+        obj.invoice_value = nomination.rate * transit.locading_l20_quantity
+        obj.profiltability = nomination.customer.price * transit.locading_l20_quantity
+        super().save_model(request, obj, form, change)
+
     def response_add(self, request, obj, post_url_continue=None):
         return redirect('/admin/process/nomination')
 
