@@ -14,10 +14,18 @@ admin.site.register(Company)
 admin.site.register(Station)
 admin.site.register(Fuel)
 
+class TransporterBulkPaymentInline(admin.TabularInline):
+    fields = ["currency", "amount", "payment_date"]
+    readonly_fields = ("created_at",)
+    extra = 1
+    model = TransporterBulkPayment
+
 
 @admin.register(Transporter)
 class TransporterAdmin(admin.ModelAdmin):
     list_display = ("name","poc_name","poc_email")
+    readonly_fields = ("bulk_money",)
+    inlines = (TransporterBulkPaymentInline,)
 
 
 admin.site.register(DiscountMaster)

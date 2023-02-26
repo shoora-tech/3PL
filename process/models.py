@@ -13,6 +13,7 @@ class Fullfillment(UUIDModel):
     shortage_value = models.FloatField(blank=True, null=True) # net_shoratge * product_cost
     net_to_be_paid = models.FloatField(blank=True, null=True) # invoice_value - all_advance - shortage
     profiltability = models.FloatField(blank=True, null=True) # (customer_price * l20_loaded) - invoice_value
+    dues_paid = models.BooleanField(default=False)
 
 class Transit(UUIDModel):
     loading_date = models.DateField()
@@ -34,7 +35,7 @@ class Nomination(UUIDModel):
     APPROVED = "approved"
 
     NOMINATION_STATUS_CHOICES = (
-        (VALIDATION_PENDING, "Validation Pening"),
+        (VALIDATION_PENDING, "Validation Pending"),
         (APPROVAL_PENDING, "Approval Pending"),
         (APPROVED, "Approved"),
     )
@@ -57,8 +58,9 @@ class Nomination(UUIDModel):
     destination = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="destination_nomination")
     # advance = models.ManyToManyField(Advance, related_name="nomination")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="nomination")
-    product_quantity = models.FloatField()
-    product_cost = models.FloatField()
+    # product_quantity = models.FloatField()
+    # tanker_capacity = models.FloatField(default=0)
+    # product_cost = models.FloatField()
     expected_loading_date = models.DateField()
     nomination_status = models.CharField(
         choices=NOMINATION_STATUS_CHOICES,
@@ -70,7 +72,8 @@ class Nomination(UUIDModel):
         default=NOMINATION,
         max_length=20
     )
-    rate = models.FloatField(default=0, null=True, blank=True)
+    sales_approved = models.BooleanField(default=False)
+    rate = models.FloatField(default=0, null=True, blank=True, verbose_name="Rate (usd/ton)")
     transit = models.ForeignKey(Transit, on_delete=models.SET_NULL, related_name="nomination", blank=True, null=True)
     offload = models.ForeignKey(Fullfillment, on_delete=models.SET_NULL, related_name="nomination", blank=True, null=True)
 
@@ -80,17 +83,38 @@ class AdvanceOthers(UUIDModel):
     sellable = models.ForeignKey(Sellables, on_delete=models.CASCADE, related_name="advance_others")
     quantity = models.FloatField()
 
+    def save(self, *args, **kwargs):
+        # set nomination status to validation pending
+        nomination = self.nomination
+        nomination.nomination_status = Nomination.VALIDATION_PENDING
+        nomination.save()
+        super().save(*args, **kwargs)
+
 
 class AdvanceCash(UUIDModel):
     nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="advance_cash")
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="advance_cash")
     amount = models.FloatField()
+
+    def save(self, *args, **kwargs):
+        # set nomination status to validation pending
+        nomination = self.nomination
+        nomination.nomination_status = Nomination.VALIDATION_PENDING
+        nomination.save()
+        super().save(*args, **kwargs)
     
 
 class AdvanceFuel(UUIDModel):
     station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="advance_fuel")
     nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="advance_fuel")
     fuel_quantity = models.FloatField()
+
+    def save(self, *args, **kwargs):
+        # set nomination status to validation pending
+        nomination = self.nomination
+        nomination.nomination_status = Nomination.VALIDATION_PENDING
+        nomination.save()
+        super().save(*args, **kwargs)
 
 
 

@@ -14,7 +14,7 @@ class Currency(UUIDModel):
 
 
 class CurrencyExchange(UUIDModel):
-    exchange_rate = models.IntegerField()
+    exchange_rate = models.FloatField(default=0)
     from_currency = models.ForeignKey(Currency, related_name="from_currency", on_delete=models.CASCADE, blank=True, null=True)
     to_currency = models.ForeignKey(Currency, related_name="to_currency", on_delete=models.CASCADE, blank=True, null=True)
     
@@ -69,6 +69,7 @@ class Transporter(UUIDModel):
     bank_name_USD_account = models.CharField(max_length=50,blank=True, null=True)
     swift_code_USD_account = models.CharField(max_length=20,blank=True, null=True)
     account_number_USD_account = models.IntegerField( blank=True, null=True)
+    bulk_money = models.FloatField(default=0)
 
     def __str__(self):
         return self.name
@@ -92,6 +93,7 @@ class Vehicle(UUIDModel):
 class Tanker(UUIDModel):
     tanker_number = models.CharField(max_length=10)
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
+    capacity = models.FloatField(default=0)
 
     def __str__(self):
         return self.tanker_number
@@ -162,3 +164,21 @@ class Sellables(UUIDModel):
 
     def __str__(self):
         return self.name
+
+
+class TransporterBulkPayment(UUIDModel):
+    currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="transporter_payment")
+    transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE, related_name="transporter_payment")
+    amount = models.FloatField(default=0)
+    payment_date = models.DateField()
+
+    def save(self, *args, **kwargs):
+        # set nomination status to validation pending
+        transporter = self.transporter
+        bm = transporter.bulk_money
+        exchange = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=self.currency).exchange_rate
+        amount = bm + (self.amount *(1/exchange))
+        transporter.bulk_money = amount
+        transporter.save()
+        super().save(*args, **kwargs)
+

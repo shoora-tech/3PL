@@ -65,11 +65,11 @@ class NominationAdmin(admin.ModelAdmin):
         "custom_button",
         "action_button"
     )
-    readonly_fields = ("transit", "offload", "stage", "nomination_status")
+    readonly_fields = ("transit", "offload", "stage", "nomination_status", "sales_approved")
     inlines = (AdvanceCashInline, AdvanceFuelInline, AdvanceOthersInline)
 
     def nomination_date(self, obj):
-        return obj.created_at
+        return obj.created_at.date()
     
     def advance_cash(self, obj):
         cash = obj.advance_cash.all()
@@ -77,11 +77,16 @@ class NominationAdmin(admin.ModelAdmin):
         for c in cash:
             if c.currency.name != "USD":
                 exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=c.currency).exchange_rate
-                amount = c.amount * exchange_rate
+                amount = c.amount * (1/exchange_rate)
             else:
                 amount = c.amount
             total += amount
-        return total
+        total = round(total, 2)
+        return format_html(
+                    '<a href="{}">{}</a>&nbsp;',
+                    reverse('admin:process_nomination_change', args=[obj.pk]),
+                    total
+                )
 
 
     def advance_fuel(self, obj):
@@ -93,7 +98,12 @@ class NominationAdmin(admin.ModelAdmin):
                 qty = f.fuel_quantity
                 amount = qty * fuel_price.fuel_price
                 total += amount
-        return total
+        total = round(total, 2)
+        return format_html(
+                    '<a href="{}">{}</a>&nbsp;',
+                    reverse('admin:process_nomination_change', args=[obj.pk]),
+                    total
+                )
 
 
     def advance_others(self, obj):
@@ -102,9 +112,14 @@ class NominationAdmin(admin.ModelAdmin):
         for o in others:
             qty = o.quantity
             exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=o.sellable.currency).exchange_rate
-            amount = qty * o.sellable.unit_price *exchange_rate
+            amount = qty * o.sellable.unit_price * (1/exchange_rate)
             total += amount
-        return total
+        total = round(total, 2)
+        return format_html(
+                    '<a href="{}">{}</a>&nbsp;',
+                    reverse('admin:process_nomination_change', args=[obj.pk]),
+                    total
+                )
 
     def base_quantity(self, obj):
         if obj.transit:
@@ -118,7 +133,7 @@ class NominationAdmin(admin.ModelAdmin):
 
     def loading_date(self, obj):
         if obj.transit:
-            return obj.transit.created_at
+            return obj.transit.created_at.date()
         return None
 
     def release_date(self, obj):
@@ -153,21 +168,60 @@ class NominationAdmin(admin.ModelAdmin):
         return None
 
     def shortage(self, obj):
+        if obj.offload:
+            return obj.offload.shortage
         return None
+
     def tolerance(self, obj):
+        if obj.offload:
+            return obj.offload.tolerance
         return None
+
     def net_shortage(self, obj):
+        if obj.offload:
+            return obj.offload.net_shortage
         return None
+
     def shortage_value(self, obj):
+        if obj.offload:
+            return obj.offload.shortage_value
         return None
+
     def net_to_be_paid(self, obj):
+        if obj.offload:
+            return obj.offload.net_to_be_paid
         return None
+
     def profitability(self, obj):
+        if obj.offload:
+            return obj.offload.profiltability
         return None
-    def paid(self, obj):
-        return None
+
     def sales_approval(self, obj):
-        return None
+        if not obj.sales_approved:
+            return format_html(
+                    '<a class="button" href="{}">Approve</a>&nbsp;',
+                    reverse('admin:nomination-approve-sale', args=[obj.pk])
+                )
+        return "Sales Approved"
+    
+    def paid(self, obj):
+        if obj.offload and not obj.offload.dues_paid:
+            transporter = obj.transporter
+            try:
+                if transporter.bulk_money >= obj.offload.net_to_be_paid:
+                    return format_html(
+                            '<a class="button" href="{}">Pay</a>&nbsp;',
+                            reverse('admin:nomination-paid', args=[obj.pk])
+                        )
+            except Exception as e:
+                pass
+        elif obj.offload and obj.offload.dues_paid:
+            return format_html(
+                "<p>PAID<p>"
+            )
+
+        return "---"
     
     
     
@@ -196,19 +250,25 @@ class NominationAdmin(admin.ModelAdmin):
             '<p> ---- </p>',
         )
         else:
-            if obj.stage == Nomination.NOMINATION and obj.nomination_status == Nomination.APPROVED:
+            if obj.stage == Nomination.NOMINATION and obj.nomination_status == Nomination.APPROVED and obj.sales_approved:
                 return format_html(
                     '<a class="button" href="{}">Move to transit</a>&nbsp;',
                     reverse('admin:nomination-transit', args=(obj.pk, )),
                 )
-            elif obj.stage == Nomination.TRANSIT and obj.nomination_status == Nomination.APPROVED:
+            elif obj.stage == Nomination.TRANSIT and obj.nomination_status == Nomination.APPROVED and obj.sales_approved:
                 return format_html(
                     '<a class="button" href="{}">Move to offload</a>&nbsp;',
                     reverse('admin:nomination-offload', args=[obj.pk])
                 )
+            
+            elif obj.stage == Nomination.OFFLOAD and obj.nomination_status == Nomination.APPROVED and obj.sales_approved:
+                return format_html(
+                    '<p> Completed </p>'
+                )
+            
         
         return format_html(
-            '<p> Completed </p>',
+            '<p> --- </p>',
         )
 
     custom_button.short_description = "Status Action"
@@ -233,6 +293,14 @@ class NominationAdmin(admin.ModelAdmin):
             path("<nomination_id>/offload/",
             self.admin_site.admin_view(self.offload),
             name='nomination-offload'
+            ),
+            path("<nomination_id>/approve-sale/",
+            self.admin_site.admin_view(self.approve_sales),
+            name='nomination-approve-sale'
+            ),
+            path("<nomination_id>/paid/",
+            self.admin_site.admin_view(self.dues),
+            name='nomination-paid'
             ),
             
         ]
@@ -279,13 +347,31 @@ class NominationAdmin(admin.ModelAdmin):
         nomination.stage = Nomination.OFFLOAD
         nomination.save()
         return HttpResponseRedirect(reverse('admin:process_fullfillment_change', args=(offload.id,)))
-
+    
+    def approve_sales(self, request, nomination_id, *args, **kwargs):
+        nomination = self.get_object(request, nomination_id)
+        nomination.sales_approved = True
+        nomination.save()
+        return HttpResponseRedirect(reverse('admin:process_nomination_changelist'))
+    
+    def dues(self, request, nomination_id, *args, **kwargs):
+        nomination = self.get_object(request, nomination_id)
+        transporter = nomination.transporter
+        offload = nomination.offload
+        bm = transporter.bulk_money
+        bm = bm - offload.net_to_be_paid
+        transporter.bulk_money = bm
+        transporter.save()
+        offload.dues_paid = True
+        offload.save()
+        return HttpResponseRedirect(reverse('admin:process_nomination_changelist'))
 
 
 
 @admin.register(AdvanceCash)
 class AdvanceCashAdmin(admin.ModelAdmin):
     list_display = ("nomination", "currency", "amount")
+
 
 @admin.register(AdvanceFuel)
 class AdvanceFuelAdmin(admin.ModelAdmin):
@@ -306,9 +392,13 @@ class NominationInline(admin.StackedInline):
         "source",
         "destination",
         "product",
-        "product_quantity",
-        "product_cost",
-        "expected_loading_date"
+        # "tanker_capacity",
+        "expected_loading_date",
+        "nomination_status",
+        "stage",
+        "sales_approved",
+        "rate",
+        "offload"
         ]
     extra = 0
     model = Nomination
@@ -338,12 +428,20 @@ class TransmitAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         # print("rate ", obj.__dict__)
         nomination = Nomination.objects.get(transit__id=obj.id)
-        obj.invoice_value = nomination.rate * obj.locading_l20_quantity
+        obj.invoice_value = (nomination.rate * obj.locading_l20_quantity)/1000
         super().save_model(request, obj, form, change)
 
 @admin.register(Fullfillment)
 class FullfillmentAdmin(admin.ModelAdmin):
     inlines = (NominationInline, TransitInline)
+    readonly_fields = (
+        "shortage",
+        "tolerance",
+        "net_shortage",
+        "shortage_value",
+        "net_to_be_paid",
+        "profiltability",
+    )
 
     def save_model(self, request, obj, form, change):
         # print("rate ", obj.__dict__)
@@ -352,7 +450,7 @@ class FullfillmentAdmin(admin.ModelAdmin):
         # shortage 
         obj.shortage = transit.locading_l20_quantity - obj.off_loading_l20_quantity
         # tolerance
-        obj.tolerance = nomination.product.tolerance * transit.locading_l20_quantity
+        obj.tolerance = (nomination.product.tolerance / 100) * transit.locading_l20_quantity
         # net shortage
         net_shortage = obj.shortage - obj.tolerance
         obj.net_shortage = 0 if net_shortage < 0 else net_shortage
@@ -365,7 +463,7 @@ class FullfillmentAdmin(admin.ModelAdmin):
         for c in cash:
             if c.currency.name != "USD":
                 exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=c.currency).exchange_rate
-                amount = c.amount * exchange_rate
+                amount = c.amount * (1/exchange_rate)
             else:
                 amount = c.amount
             total += amount
@@ -379,12 +477,12 @@ class FullfillmentAdmin(admin.ModelAdmin):
         for o in others:
             qty = o.quantity
             exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=o.sellable.currency).exchange_rate
-            amount = qty * o.sellable.unit_price *exchange_rate
+            amount = qty * o.sellable.unit_price * (1/exchange_rate)
             total += amount
         
-        obj.net_to_be_paid = transit.invoice_value - obj.shortage - total
+        obj.net_to_be_paid = transit.invoice_value - obj.shortage_value - total
         obj.invoice_value = nomination.rate * transit.locading_l20_quantity
-        obj.profiltability = nomination.customer.price * transit.locading_l20_quantity
+        obj.profiltability = ((nomination.customer.price * transit.locading_l20_quantity)/1000) - transit.invoice_value
         super().save_model(request, obj, form, change)
 
     def response_add(self, request, obj, post_url_continue=None):
