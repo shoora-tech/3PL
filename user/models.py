@@ -4,6 +4,7 @@ from django.contrib.auth.models import PermissionsMixin, Permission
 from TPL.models import UUIDModel
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+from django.contrib.auth.models import Group
 
 # Create your models here.
 # Organization, User, User Type
@@ -41,11 +42,13 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDModel):
     OPERATOR = "operator"
     VALIDATOR = "validator"
     ADMIN = "admin"
+    SALES_APPROVER = "sales_approver"
 
     USER_TYPE_CHOICES = (
         (VALIDATOR, "Validator"),
         (OPERATOR, "Operator"),
         (ADMIN, "Admin"),
+        (SALES_APPROVER, "Sales Approver")
     )
 
     name = models.CharField(max_length=50)
@@ -79,4 +82,7 @@ def create_user_for_organization(sender, instance=None, created=False, **kwargs)
                 organization = instance
             )
         user.set_password("qwerty")
+        user.is_staff = True
         user.save()
+        admin = Group.objects.get(name='admin') 
+        admin.user_set.add(user)

@@ -9,6 +9,7 @@ from django.urls import path
 from django.urls import reverse
 from django.utils import timezone
 from django.shortcuts import redirect
+from user.models import User
 
 # Register your models here.
 
@@ -35,6 +36,7 @@ class AdvanceFuelInline(admin.TabularInline):
 class NominationAdmin(admin.ModelAdmin):
     list_display = (
         "transporter",
+        "stage",
         "nomination_date",
         "vehicle",
         "tanker",
@@ -61,12 +63,25 @@ class NominationAdmin(admin.ModelAdmin):
         "profitability",
         "paid",
         "sales_approval",
-        "stage",
         "custom_button",
         "action_button"
     )
     readonly_fields = ("transit", "offload", "stage", "nomination_status", "sales_approved")
     inlines = (AdvanceCashInline, AdvanceFuelInline, AdvanceOthersInline)
+
+    def get_list_display(self, request):
+        # only sales approver user can see sales approve section
+        # only validator can see validate option
+        # only approver can see approve option
+        list_display = list(self.list_display)
+        if request.user.user_type not in  [User.SALES_APPROVER, User.ADMIN]:
+            list_display.remove("sales_approval")
+
+        if request.user not in [User.VALIDATOR, User.ADMIN]:
+            list_display.remove("custom_button")
+        
+        return list_display
+        
 
     def nomination_date(self, obj):
         return obj.created_at.date()
@@ -371,15 +386,27 @@ class NominationAdmin(admin.ModelAdmin):
 @admin.register(AdvanceCash)
 class AdvanceCashAdmin(admin.ModelAdmin):
     list_display = ("nomination", "currency", "amount")
+    def has_module_permission(self, request):
+        if request.user.is_superuser or request.user.user_type == "admin":
+            return True
+        return False
 
 
 @admin.register(AdvanceFuel)
 class AdvanceFuelAdmin(admin.ModelAdmin):
     list_display = ("station", "fuel_quantity")
+    def has_module_permission(self, request):
+        if request.user.is_superuser or request.user.user_type == "admin":
+            return True
+        return False
 
 @admin.register(AdvanceOthers)
 class AdvanceOthersAdmin(admin.ModelAdmin):
     list_display = ("sellable", "quantity")
+    def has_module_permission(self, request):
+        if request.user.is_superuser or request.user.user_type == "admin":
+            return True
+        return False
 
 # Transit
 class NominationInline(admin.StackedInline):
@@ -430,6 +457,11 @@ class TransmitAdmin(admin.ModelAdmin):
         nomination = Nomination.objects.get(transit__id=obj.id)
         obj.invoice_value = (nomination.rate * obj.locading_l20_quantity)/1000
         super().save_model(request, obj, form, change)
+    
+    def has_module_permission(self, request):
+        if request.user.is_superuser or request.user.user_type == "admin":
+            return True
+        return False
 
 @admin.register(Fullfillment)
 class FullfillmentAdmin(admin.ModelAdmin):
@@ -490,5 +522,10 @@ class FullfillmentAdmin(admin.ModelAdmin):
 
     def response_change(self, request, obj):
         return redirect('/admin/process/nomination')
+    
+    def has_module_permission(self, request):
+        if request.user.is_superuser or request.user.user_type == "admin":
+            return True
+        return False
 
 
