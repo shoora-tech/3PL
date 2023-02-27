@@ -34,6 +34,7 @@ class AdvanceFuelInline(admin.TabularInline):
 
 @admin.register(Nomination)
 class NominationAdmin(admin.ModelAdmin):
+    exclude = ('is_deleted',)
     list_display = (
         "transporter",
         "stage",
@@ -66,19 +67,24 @@ class NominationAdmin(admin.ModelAdmin):
         "custom_button",
         "action_button"
     )
-    readonly_fields = ("transit", "offload", "stage", "nomination_status", "sales_approved")
+    readonly_fields = ("transit", "offload", "stage", "nomination_status", "sales_approved", "summary")
     inlines = (AdvanceCashInline, AdvanceFuelInline, AdvanceOthersInline)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(is_deleted=False)
 
     def get_list_display(self, request):
         # only sales approver user can see sales approve section
         # only validator can see validate option
         # only approver can see approve option
         list_display = list(self.list_display)
-        if request.user.user_type not in  [User.SALES_APPROVER, User.ADMIN]:
-            list_display.remove("sales_approval")
+        if not request.user.is_superuser:
+            if request.user.user_type not in  [User.SALES_APPROVER, User.ADMIN]:
+                list_display.remove("sales_approval")
 
-        if request.user not in [User.VALIDATOR, User.ADMIN]:
-            list_display.remove("custom_button")
+            if request.user not in [User.VALIDATOR, User.ADMIN]:
+                list_display.remove("custom_button")
         
         return list_display
         
@@ -378,7 +384,10 @@ class NominationAdmin(admin.ModelAdmin):
         transporter.bulk_money = bm
         transporter.save()
         offload.dues_paid = True
-        offload.save()
+        nomination.is_deleted = True
+        nomination.transit.is_deleted = True
+        nomination.offload.is_deleted = True
+        
         transit = nomination.transit
         summary = Summary.objects.create(
             nomination = nomination,
@@ -386,7 +395,13 @@ class NominationAdmin(admin.ModelAdmin):
             fullfillment = offload,
         )
         summary.save()
-        return HttpResponseRedirect(reverse('admin:process_nomination_changelist'))
+        nomination.summary = summary
+        transit.summary = summary
+        offload.summary = summary
+        nomination.save()
+        transit.save()
+        offload.save()
+        return HttpResponseRedirect(reverse('admin:process_summary_change', args=(summary.id,)))
 
 
 
@@ -432,6 +447,7 @@ class AdvanceOthersAdmin(admin.ModelAdmin):
 
 # Transit
 class NominationInline(admin.StackedInline):
+    exclude = ('is_deleted',)
     readonly_fields = [
         "transporter",
         "tanker",
@@ -454,6 +470,7 @@ class NominationInline(admin.StackedInline):
 
 
 class TransitInline(admin.TabularInline):
+    exclude = ('is_deleted',)
     readonly_fields = [
         "loading_date",
         "loading_base_quantity",
@@ -465,8 +482,9 @@ class TransitInline(admin.TabularInline):
 
 @admin.register(Transit)
 class TransmitAdmin(admin.ModelAdmin):
+    exclude = ('is_deleted',)
     inlines = (NominationInline,)
-    readonly_fields = ("fullfillment", "invoice_value")
+    readonly_fields = ("fullfillment", "invoice_value", "summary")
 
     def response_add(self, request, obj, post_url_continue=None):
         return redirect('/admin/process/nomination')
@@ -492,6 +510,7 @@ class TransmitAdmin(admin.ModelAdmin):
 
 @admin.register(Fullfillment)
 class FullfillmentAdmin(admin.ModelAdmin):
+    exclude = ('is_deleted',)
     inlines = (NominationInline, TransitInline)
     readonly_fields = (
         "shortage",
@@ -500,6 +519,8 @@ class FullfillmentAdmin(admin.ModelAdmin):
         "shortage_value",
         "net_to_be_paid",
         "profiltability",
+        "summary",
+        "dues_paid",
     )
 
     def save_model(self, request, obj, form, change):
@@ -561,6 +582,7 @@ class FullfillmentAdmin(admin.ModelAdmin):
         return False
 
 class FullfilmentInline(admin.TabularInline):
+    exclude = ('is_deleted',)
     readonly_fields = [
         "shortage",
         "tolerance",
@@ -575,4 +597,186 @@ class FullfilmentInline(admin.TabularInline):
 @admin.register(Summary)
 class SummaryAdmin(admin.ModelAdmin):
     inlines = (NominationInline, TransitInline, FullfilmentInline)
+    list_display = (
+        "transporter",
+        "nomination_date",
+        "vehicle",
+        "tanker",
+        "customer",
+        "product",
+        "advance_cash",
+        "advance_fuel",
+        "advance_others",
+        "base_quantity",
+        "l20_quantity",
+        "loading_date",
+        "release_date",
+        "rate",
+        "invoice_value",
+        "transporter_invoice_number",
+        "transporter_invoice_date",
+        "ofloading_quantity",
+        "offloading_date",
+        "shortage",
+        "tolerance",
+        "net_shortage",
+        "shortage_value",
+        "net_to_be_paid",
+        "profitability",
+        "paid",
+        "sales_approval",
+        "stage",
+    )
+    readonly_fields = (
+        "nomination",
+        "transit",
+        "fullfillment"
+    )
+
+    def transporter(self, obj):
+        return obj.nomination.transporter
+
+    def nomination_date(self, obj):
+        return obj.nomination.created_at.date()
+
+    def advance_cash(self, obj):
+        cash = obj.nomination.advance_cash.all()
+        total = 0
+        for c in cash:
+            if c.currency.name != "USD":
+                exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=c.currency).exchange_rate
+                amount = c.amount * (1/exchange_rate)
+            else:
+                amount = c.amount
+            total += amount
+        total = round(total, 2)
+        return total
+
+
+    def advance_fuel(self, obj):
+        fuel = obj.nomination.advance_fuel.all()
+        total = 0
+        for f in fuel:
+            fuel_price = Fuel.objects.filter(station=f.station).last()
+            if fuel_price:
+                qty = f.fuel_quantity
+                amount = qty * fuel_price.fuel_price
+                total += amount
+        total = round(total, 2)
+        return total
+
+    def rate(self, obj):
+        return obj.nomination.rate
+
+    def vehicle(self, obj):
+        return obj.nomination.vehicle
+
+    def tanker(self, obj):
+        return obj.nomination.tanker
+
+    def customer(self, obj):
+        return obj.nomination.customer
+
+    def product(self, obj):
+        return obj.nomination.product
+
+
+    def advance_others(self, obj):
+        others = obj.nomination.advance_others.all()
+        total = 0
+        for o in others:
+            qty = o.quantity
+            exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=o.sellable.currency).exchange_rate
+            amount = qty * o.sellable.unit_price * (1/exchange_rate)
+            total += amount
+        total = round(total, 2)
+        return total
+
+    def base_quantity(self, obj):
+        if obj.transit:
+            return obj.transit.loading_base_quantity
+        return None
+
+    def l20_quantity(self, obj):
+        if obj.transit:
+            return obj.transit.locading_l20_quantity
+        return None
+
+    def loading_date(self, obj):
+        if obj.transit:
+            return obj.transit.created_at.date()
+        return None
+
+    def release_date(self, obj):
+        if obj.transit:
+            return obj.transit.release_date
+        return None
+
+    
+    def invoice_value(self, obj):
+        if obj.transit:
+            return obj.transit.invoice_value
+        return None
+
+    def transporter_invoice_number(self, obj):
+        if obj.transit:
+            return obj.transit.invoice_number
+        return None
+
+    def transporter_invoice_date(self, obj):
+        if obj.transit:
+            return obj.transit.invoice_date
+        return None
+        
+    def ofloading_quantity(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.off_loading_l20_quantity
+        return None
+
+    def offloading_date(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.off_loading_date
+        return None
+
+    def shortage(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.shortage
+        return None
+
+    def tolerance(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.tolerance
+        return None
+
+    def net_shortage(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.net_shortage
+        return None
+
+    def shortage_value(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.shortage_value
+        return None
+
+    def net_to_be_paid(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.net_to_be_paid
+        return None
+
+    def profitability(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.profiltability
+        return None
+
+    def sales_approval(self, obj):
+        return "Approved"
+    
+    def paid(self, obj):
+        return "Paid"    
+
+    def stage(self, obj):
+        return "Completed"
+        
+    def has_change_permission(self, request, obj=None):
+        return False
     
