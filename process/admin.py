@@ -379,6 +379,13 @@ class NominationAdmin(admin.ModelAdmin):
         transporter.save()
         offload.dues_paid = True
         offload.save()
+        transit = nomination.transit
+        summary = Summary.objects.create(
+            nomination = nomination,
+            transit = transit,
+            fullfillment = offload,
+        )
+        summary.save()
         return HttpResponseRedirect(reverse('admin:process_nomination_changelist'))
 
 
@@ -387,8 +394,13 @@ class NominationAdmin(admin.ModelAdmin):
 class AdvanceCashAdmin(admin.ModelAdmin):
     list_display = ("nomination", "currency", "amount")
     def has_module_permission(self, request):
-        if request.user.is_superuser or request.user.user_type == "admin":
-            return True
+        # print("\n\n............................................................................\n\n")
+        # print(request.user)
+        if request.user.is_authenticated:
+            if request.user.is_superuser:
+                return True
+            elif request.user.user_type==User.ADMIN:
+                return True
         return False
 
 
@@ -396,16 +408,26 @@ class AdvanceCashAdmin(admin.ModelAdmin):
 class AdvanceFuelAdmin(admin.ModelAdmin):
     list_display = ("station", "fuel_quantity")
     def has_module_permission(self, request):
-        if request.user.is_superuser or request.user.user_type == "admin":
-            return True
+        # print("\n\n............................................................................\n\n")
+        # print(request.user)
+        if request.user.is_authenticated:
+            if request.user.is_superuser:
+                return True
+            elif request.user.user_type==User.ADMIN:
+                return True
         return False
 
 @admin.register(AdvanceOthers)
 class AdvanceOthersAdmin(admin.ModelAdmin):
     list_display = ("sellable", "quantity")
     def has_module_permission(self, request):
-        if request.user.is_superuser or request.user.user_type == "admin":
-            return True
+        # print("\n\n............................................................................\n\n")
+        # print(request.user)
+        if request.user.is_authenticated:
+            if request.user.is_superuser:
+                return True
+            elif request.user.user_type==User.ADMIN:
+                return True
         return False
 
 # Transit
@@ -459,8 +481,13 @@ class TransmitAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
     
     def has_module_permission(self, request):
-        if request.user.is_superuser or request.user.user_type == "admin":
-            return True
+        # print("\n\n............................................................................\n\n")
+        # print(request.user)
+        if request.user.is_authenticated:
+            if request.user.is_superuser:
+                return True
+            elif request.user.user_type==User.ADMIN:
+                return True
         return False
 
 @admin.register(Fullfillment)
@@ -524,8 +551,28 @@ class FullfillmentAdmin(admin.ModelAdmin):
         return redirect('/admin/process/nomination')
     
     def has_module_permission(self, request):
-        if request.user.is_superuser or request.user.user_type == "admin":
-            return True
+        # print("\n\n............................................................................\n\n")
+        # print(request.user)
+        if request.user.is_authenticated:
+            if request.user.is_superuser:
+                return True
+            elif request.user.user_type==User.ADMIN:
+                return True
         return False
 
+class FullfilmentInline(admin.TabularInline):
+    readonly_fields = [
+        "shortage",
+        "tolerance",
+        "net_shortage",
+        "shortage_value",
+        "net_to_be_paid",
+        "profiltability",
+    ]
+    extra = 0
+    model = Fullfillment
 
+@admin.register(Summary)
+class SummaryAdmin(admin.ModelAdmin):
+    inlines = (NominationInline, TransitInline, FullfilmentInline)
+    
