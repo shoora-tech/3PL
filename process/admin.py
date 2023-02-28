@@ -11,6 +11,8 @@ from django.utils import timezone
 from django.shortcuts import redirect
 from user.models import User
 from django.db.models import Sum
+from django import forms
+from dal import autocomplete
 
 # Register your models here.
 
@@ -32,6 +34,15 @@ class AdvanceFuelInline(admin.TabularInline):
     model = AdvanceFuel
 
 
+
+class NominationForm(forms.ModelForm):
+    vehicle = forms.ModelChoiceField(
+        queryset=Vehicle.objects.all(),
+        widget=autocomplete.ModelSelect2(
+                        url='transporter_vehicle_autocomplete',
+                        forward=['transporter'],
+                ),
+    )
 
 @admin.register(Nomination)
 class NominationAdmin(admin.ModelAdmin):
@@ -68,6 +79,7 @@ class NominationAdmin(admin.ModelAdmin):
         "custom_button",
         "action_button"
     )
+    form = NominationForm
     readonly_fields = ("transit", "offload", "stage", "nomination_status", "sales_approved", "summary")
     inlines = (AdvanceCashInline, AdvanceFuelInline, AdvanceOthersInline)
 

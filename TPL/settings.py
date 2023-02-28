@@ -41,7 +41,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
+    # Custom packages
+    'dal',
+    'dal_select2',
     # 3PL Modules
     "user",
     "components",
@@ -147,6 +149,7 @@ STATICFILES_DIR = (os.path.join(BASE_DIR, "static"),)
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 
 
 # Custom User Model

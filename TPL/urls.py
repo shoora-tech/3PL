@@ -15,6 +15,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from process.views import TransporterVehicleView
 
 admin.site.site_header = "3PL Shoora"
 admin.site.index_title = "3PL Shoora"
@@ -22,4 +23,6 @@ admin.site.site_title = "3PL Admin"
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('transporter-vehicles/', TransporterVehicleView.as_view(), name="transporter_vehicle_autocomplete"),
+
 ]
