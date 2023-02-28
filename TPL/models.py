@@ -1,5 +1,5 @@
 from django.db import models
-from uuid import uuid4\
+from uuid import uuid4
 
 class UUIDModel(models.Model):
     uuid = models.UUIDField(
