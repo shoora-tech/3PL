@@ -13,13 +13,13 @@ class UserAdmin(UserAdmin):
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Personal info', {'fields': ('name', 'organization',)}),
-        ('Django Permissions', {'fields': ('is_admin', 'is_active', 'is_staff', 'is_superuser')}),
+        ('Permissions', {'fields': ('is_active','user_type', 'is_staff', 'groups')}),
         # ('Shoora Permissions', {'fields': ('roles',)}),
     )
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'password1', 'password2', 'name', 'organization'),
+            'fields': ('email', 'password1', 'password2', 'name', 'user_type', 'is_staff', 'organization'),
         }),
     )
     list_per_page = 20

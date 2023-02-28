@@ -27,6 +27,11 @@ class AccountManager(BaseUserManager):
         )
         user.set_password(password)
         user.save(using=self._db)
+        if user.user_type:
+            # based on user type assign group
+            group = Group.objects.get(name=user.user_type) 
+            group.user_set.add(user)
+            print("user added to group")
         return user
     
     def create_superuser(self, email, password):
@@ -75,7 +80,6 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDModel):
 
 @receiver(post_save, sender=Organization)
 def create_user_for_organization(sender, instance=None, created=False, **kwargs):
-    print("creaed ", created)
     if created:
         user = User.objects.create(
                 email = instance.email,

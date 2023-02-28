@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.shortcuts import redirect
 from user.models import User
+from django.db.models import Sum
 
 # Register your models here.
 
@@ -62,7 +63,7 @@ class NominationAdmin(admin.ModelAdmin):
         "shortage_value",
         "net_to_be_paid",
         "profitability",
-        "paid",
+        # "paid",
         "sales_approval",
         "custom_button",
         "action_button"
@@ -72,6 +73,14 @@ class NominationAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        if request.user.user_type == User.VALIDATOR:
+            return qs.filter(nomination_status=Nomination.VALIDATION_PENDING)
+        
+        if request.user.user_type == User.OPERATOR:
+            return qs.exclude(stage=Nomination.OFFLOAD)
+        
+        elif request.user.user_type == User.SALES_APPROVER:
+            return qs.filter(sales_approved=False)
         return qs.filter(is_deleted=False)
 
     def get_list_display(self, request):
@@ -83,7 +92,7 @@ class NominationAdmin(admin.ModelAdmin):
             if request.user.user_type not in  [User.SALES_APPROVER, User.ADMIN]:
                 list_display.remove("sales_approval")
 
-            if request.user not in [User.VALIDATOR, User.ADMIN]:
+            if request.user.user_type not in [User.VALIDATOR, User.ADMIN]:
                 list_display.remove("custom_button")
         
         return list_display
@@ -111,15 +120,19 @@ class NominationAdmin(admin.ModelAdmin):
 
 
     def advance_fuel(self, obj):
-        fuel = obj.advance_fuel.all()
         total = 0
-        for f in fuel:
-            fuel_price = Fuel.objects.filter(station=f.station).last()
-            if fuel_price:
-                qty = f.fuel_quantity
-                amount = qty * fuel_price.fuel_price
-                total += amount
-        total = round(total, 2)
+        fuel = obj.advance_fuel.aggregate(total=Sum("net_amount"))
+        print("fuel ", fuel)
+        if fuel['total']:
+            total = round(fuel['total'], 2)
+        # total = 0
+        # for f in fuel:
+        #     fuel_price = Fuel.objects.filter(station=f.station).last()
+        #     if fuel_price:
+        #         qty = f.fuel_quantity
+        #         amount = qty * fuel_price.fuel_price
+        #         total += amount
+        # total = round(total, 2)
         return format_html(
                     '<a href="{}">{}</a>&nbsp;',
                     reverse('admin:process_nomination_change', args=[obj.pk]),
@@ -139,7 +152,7 @@ class NominationAdmin(admin.ModelAdmin):
         return format_html(
                     '<a href="{}">{}</a>&nbsp;',
                     reverse('admin:process_nomination_change', args=[obj.pk]),
-                    total
+                    str(total)
                 )
 
     def base_quantity(self, obj):
@@ -226,23 +239,23 @@ class NominationAdmin(admin.ModelAdmin):
                 )
         return "Sales Approved"
     
-    def paid(self, obj):
-        if obj.offload and not obj.offload.dues_paid:
-            transporter = obj.transporter
-            try:
-                if transporter.bulk_money >= obj.offload.net_to_be_paid:
-                    return format_html(
-                            '<a class="button" href="{}">Pay</a>&nbsp;',
-                            reverse('admin:nomination-paid', args=[obj.pk])
-                        )
-            except Exception as e:
-                pass
-        elif obj.offload and obj.offload.dues_paid:
-            return format_html(
-                "<p>PAID<p>"
-            )
+    # def paid(self, obj):
+    #     if obj.offload and not obj.offload.dues_paid:
+    #         transporter = obj.transporter
+    #         try:
+    #             if transporter.bulk_money >= obj.offload.net_to_be_paid:
+    #                 return format_html(
+    #                         '<a class="button" href="{}">Pay</a>&nbsp;',
+    #                         reverse('admin:nomination-paid', args=[obj.pk])
+    #                     )
+    #         except Exception as e:
+    #             pass
+    #     elif obj.offload and obj.offload.dues_paid:
+    #         return format_html(
+    #             "<p>PAID<p>"
+    #         )
 
-        return "---"
+    #     return "---"
     
     
     
@@ -319,10 +332,10 @@ class NominationAdmin(admin.ModelAdmin):
             self.admin_site.admin_view(self.approve_sales),
             name='nomination-approve-sale'
             ),
-            path("<nomination_id>/paid/",
-            self.admin_site.admin_view(self.dues),
-            name='nomination-paid'
-            ),
+            # path("<nomination_id>/paid/",
+            # self.admin_site.admin_view(self.dues),
+            # name='nomination-paid'
+            # ),
             
         ]
         return custom_urls + urls
@@ -363,32 +376,9 @@ class NominationAdmin(admin.ModelAdmin):
             off_loading_l20_quantity = 0,
         )
         transit.fullfillment = offload
-        transit.save()
         nomination.offload = offload
         nomination.stage = Nomination.OFFLOAD
-        nomination.save()
-        return HttpResponseRedirect(reverse('admin:process_fullfillment_change', args=(offload.id,)))
-    
-    def approve_sales(self, request, nomination_id, *args, **kwargs):
-        nomination = self.get_object(request, nomination_id)
-        nomination.sales_approved = True
-        nomination.save()
-        return HttpResponseRedirect(reverse('admin:process_nomination_changelist'))
-    
-    def dues(self, request, nomination_id, *args, **kwargs):
-        nomination = self.get_object(request, nomination_id)
-        transporter = nomination.transporter
-        offload = nomination.offload
-        bm = transporter.bulk_money
-        bm = bm - offload.net_to_be_paid
-        transporter.bulk_money = bm
-        transporter.save()
-        offload.dues_paid = True
-        nomination.is_deleted = True
-        nomination.transit.is_deleted = True
-        nomination.offload.is_deleted = True
-        
-        transit = nomination.transit
+        # create summary
         summary = Summary.objects.create(
             nomination = nomination,
             transit = transit,
@@ -401,7 +391,41 @@ class NominationAdmin(admin.ModelAdmin):
         nomination.save()
         transit.save()
         offload.save()
-        return HttpResponseRedirect(reverse('admin:process_summary_change', args=(summary.id,)))
+        return HttpResponseRedirect(reverse('admin:process_fullfillment_change', args=(offload.id,)))
+    
+    def approve_sales(self, request, nomination_id, *args, **kwargs):
+        nomination = self.get_object(request, nomination_id)
+        nomination.sales_approved = True
+        nomination.save()
+        return HttpResponseRedirect(reverse('admin:process_nomination_changelist'))
+    
+    # def dues(self, request, nomination_id, *args, **kwargs):
+    #     nomination = self.get_object(request, nomination_id)
+    #     transporter = nomination.transporter
+    #     offload = nomination.offload
+    #     bm = transporter.bulk_money
+    #     bm = bm - offload.net_to_be_paid
+    #     transporter.bulk_money = bm
+    #     transporter.save()
+    #     offload.dues_paid = True
+    #     nomination.is_deleted = True
+    #     nomination.transit.is_deleted = True
+    #     nomination.offload.is_deleted = True
+        
+    #     transit = nomination.transit
+    #     summary = Summary.objects.create(
+    #         nomination = nomination,
+    #         transit = transit,
+    #         fullfillment = offload,
+    #     )
+    #     summary.save()
+    #     nomination.summary = summary
+    #     transit.summary = summary
+    #     offload.summary = summary
+    #     nomination.save()
+    #     transit.save()
+    #     offload.save()
+    #     return HttpResponseRedirect(reverse('admin:process_summary_change', args=(summary.id,)))
 
 
 
@@ -413,8 +437,6 @@ class AdvanceCashAdmin(admin.ModelAdmin):
         # print(request.user)
         if request.user.is_authenticated:
             if request.user.is_superuser:
-                return True
-            elif request.user.user_type==User.ADMIN:
                 return True
         return False
 
@@ -428,8 +450,6 @@ class AdvanceFuelAdmin(admin.ModelAdmin):
         if request.user.is_authenticated:
             if request.user.is_superuser:
                 return True
-            elif request.user.user_type==User.ADMIN:
-                return True
         return False
 
 @admin.register(AdvanceOthers)
@@ -440,8 +460,6 @@ class AdvanceOthersAdmin(admin.ModelAdmin):
         # print(request.user)
         if request.user.is_authenticated:
             if request.user.is_superuser:
-                return True
-            elif request.user.user_type==User.ADMIN:
                 return True
         return False
 
@@ -504,8 +522,6 @@ class TransmitAdmin(admin.ModelAdmin):
         if request.user.is_authenticated:
             if request.user.is_superuser:
                 return True
-            elif request.user.user_type==User.ADMIN:
-                return True
         return False
 
 @admin.register(Fullfillment)
@@ -563,7 +579,12 @@ class FullfillmentAdmin(admin.ModelAdmin):
         obj.net_to_be_paid = transit.invoice_value - obj.shortage_value - total
         obj.invoice_value = nomination.rate * transit.locading_l20_quantity
         obj.profiltability = ((nomination.customer.price * transit.locading_l20_quantity)/1000) - transit.invoice_value
-        super().save_model(request, obj, form, change)
+        obj.is_deleted = True
+        nomination.is_deleted = True
+        nomination.save()
+        transit.is_deleted = True
+        transit.save()
+        return super().save_model(request, obj, form, change)
 
     def response_add(self, request, obj, post_url_continue=None):
         return redirect('/admin/process/nomination')
@@ -576,8 +597,6 @@ class FullfillmentAdmin(admin.ModelAdmin):
         # print(request.user)
         if request.user.is_authenticated:
             if request.user.is_superuser:
-                return True
-            elif request.user.user_type==User.ADMIN:
                 return True
         return False
 
@@ -633,6 +652,17 @@ class SummaryAdmin(admin.ModelAdmin):
         "fullfillment"
     )
 
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path("<summary_id>/paid/",
+            self.admin_site.admin_view(self.dues),
+            name='summary-paid'
+            ),
+            
+        ]
+        return custom_urls + urls
+
     def transporter(self, obj):
         return obj.nomination.transporter
 
@@ -654,15 +684,19 @@ class SummaryAdmin(admin.ModelAdmin):
 
 
     def advance_fuel(self, obj):
-        fuel = obj.nomination.advance_fuel.all()
+        # fuel = obj.nomination.advance_fuel.all()
         total = 0
-        for f in fuel:
-            fuel_price = Fuel.objects.filter(station=f.station).last()
-            if fuel_price:
-                qty = f.fuel_quantity
-                amount = qty * fuel_price.fuel_price
-                total += amount
-        total = round(total, 2)
+        fuel = obj.nomination.advance_fuel.aggregate(total=Sum("net_amount"))
+        if fuel['total']:
+            total = round(fuel['total'], 2)
+        # total = 0
+        # for f in fuel:
+        #     fuel_price = Fuel.objects.filter(station=f.station).last()
+        #     if fuel_price:
+        #         qty = f.fuel_quantity
+        #         amount = qty * fuel_price.fuel_price
+        #         total += amount
+        # total = round(total, 2)
         return total
 
     def rate(self, obj):
@@ -771,12 +805,50 @@ class SummaryAdmin(admin.ModelAdmin):
     def sales_approval(self, obj):
         return "Approved"
     
+    # def paid(self, obj):
+    #     return "Paid"  
+
     def paid(self, obj):
-        return "Paid"    
+        if obj.fullfillment and not obj.fullfillment.dues_paid:
+            transporter = obj.nomination.transporter
+            try:
+                if transporter.bulk_money >= obj.fullfillment.net_to_be_paid:
+                    return format_html(
+                            '<a class="button" href="{}">Pay</a>&nbsp;',
+                            reverse('admin:summary-paid', args=[obj.pk])
+                        )
+            except Exception as e:
+                pass
+        elif obj.fullfillment and obj.fullfillment.dues_paid:
+            return format_html(
+                "<p>PAID<p>"
+            )
+
+        return "---"
+
+    def dues(self, request, summary_id, *args, **kwargs):
+        summary = self.get_object(request, summary_id)
+        nomination = summary.nomination
+        transporter = nomination.transporter
+        offload = nomination.offload
+        bm = transporter.bulk_money
+        if offload.net_to_be_paid >= 0:
+            bm = bm - offload.net_to_be_paid
+            transporter.bulk_money = bm
+            transporter.save()
+        offload.dues_paid = True
+        offload.save()
+        return HttpResponseRedirect(reverse('admin:process_summary_change', args=(summary.id,)))  
 
     def stage(self, obj):
         return "Completed"
         
     def has_change_permission(self, request, obj=None):
+        return False
+    
+    def has_module_permission(self, request):
+        if request.user.is_authenticated:
+            if request.user.is_superuser or request.user.user_type == User.ADMIN:
+                return True
         return False
     

@@ -2,6 +2,8 @@ from django.db import models
 from TPL.models import UUIDModel
 from components.models import *
 from uuid import uuid4
+from django.dispatch import receiver
+from django.db.models.signals import post_save
 
 # Create your models here.
 
@@ -9,6 +11,9 @@ class Summary(UUIDModel):
     nomination = models.ForeignKey("Nomination", on_delete=models.CASCADE, blank=True, null=True, related_name="nomination_summary")
     transit = models.ForeignKey("Transit", on_delete=models.CASCADE, blank=True, null=True, related_name="transit_summary")
     fullfillment = models.ForeignKey("Fullfillment", on_delete=models.CASCADE, blank=True, null=True, related_name="fullfillment_summary")
+
+    class Meta:
+        verbose_name_plural = "Summary"
     
     
 
@@ -121,27 +126,21 @@ class AdvanceFuel(UUIDModel):
     station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="advance_fuel")
     nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="advance_fuel")
     fuel_quantity = models.FloatField()
+    discount = models.FloatField(default=0)
+    net_amount = models.FloatField(default=0)
 
     def save(self, *args, **kwargs):
         # set nomination status to validation pending
         nomination = self.nomination
         nomination.nomination_status = Nomination.VALIDATION_PENDING
         nomination.save()
+        # calculate net amount after discount
+        dm = DiscountMaster.objects.filter(station=self.station, transporter__nomination=nomination).last()
+        fuel = Fuel.objects.filter(station=self.station).last()
+        discount = dm.fuel_discount
+        net_amount = (fuel.fuel_price * self.fuel_quantity)*((100-discount)/100)
+        self.discount = discount
+        self.net_amount = net_amount
         super().save(*args, **kwargs)
 
-
-
-    # off_loading_depot = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="fullfillment")
-
-
-# class Demurrage(UUIDModel):
-#     VALIDATION_PENDING = "validation_pending"
-#     APPROVAL_PENDING = "approval_pending"
-#     APPROVED = "approved"
-
-#     DEMURRAGE_STATUS_CHOICES = (
-#         (VALIDATION_PENDING, "Validation Pening"),
-#         (APPROVAL_PENDING, "Approval Pending"),
-#         (APPROVED, "Approved"),
-#     )
 

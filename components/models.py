@@ -24,8 +24,8 @@ class CurrencyExchange(UUIDModel):
 
 class Product(UUIDModel):
     name = models.CharField(max_length=50)
-    tolerance = models.FloatField(null=True, blank=True, verbose_name="Tolerance (%)")
-    cost = models.FloatField(null=True, blank=True, verbose_name="Cost (USD)")
+    tolerance = models.FloatField(default=0, null=True, blank=True, verbose_name="Tolerance (%)")
+    cost = models.FloatField(default=0, null=True, blank=True, verbose_name="Cost (USD)")
 
     def __str__(self):
         return self.name
@@ -87,7 +87,7 @@ class Vehicle(UUIDModel):
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.vehicle_number
+        return f"{self.vehicle_number} -- {self.transporter}"
 
 
 class Tanker(UUIDModel):
@@ -96,7 +96,7 @@ class Tanker(UUIDModel):
     capacity = models.FloatField(default=0)
 
     def __str__(self):
-        return self.tanker_number
+        return f"{self.tanker_number} -- {self.transporter}"
 
 
 class Driver(UUIDModel):
@@ -109,7 +109,7 @@ class Driver(UUIDModel):
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} -- {self.transporter}"
 
 
 class Location(UUIDModel):
