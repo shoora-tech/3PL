@@ -44,6 +44,24 @@ class NominationForm(forms.ModelForm):
                 ),
     )
 
+    
+    
+    tanker = forms.ModelChoiceField(
+        queryset=Tanker.objects.all(),
+        widget=autocomplete.ModelSelect2(
+                        url='transporter_tanker_autocomplete',
+                        forward=['transporter'],
+                ),
+    )
+
+    driver = forms.ModelChoiceField(
+        queryset=Driver.objects.all(),
+        widget=autocomplete.ModelSelect2(
+                        url='transporter_driver_autocomplete',
+                        forward=['transporter'],
+                ),
+    )
+
 @admin.register(Nomination)
 class NominationAdmin(admin.ModelAdmin):
     exclude = ('is_deleted',)
