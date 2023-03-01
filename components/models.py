@@ -87,7 +87,7 @@ class Vehicle(UUIDModel):
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"{self.vehicle_number} -- {self.transporter}"
+        return self.vehicle_number
 
 
 class Tanker(UUIDModel):
@@ -96,7 +96,7 @@ class Tanker(UUIDModel):
     capacity = models.FloatField(default=0)
 
     def __str__(self):
-        return f"{self.tanker_number} -- {self.transporter}"
+        return self.tanker_number
 
 
 class Driver(UUIDModel):
@@ -109,7 +109,7 @@ class Driver(UUIDModel):
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"{self.name} -- {self.transporter}"
+        return self.name
 
 
 class Location(UUIDModel):
