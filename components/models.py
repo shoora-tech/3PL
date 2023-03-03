@@ -53,7 +53,9 @@ class Station(UUIDModel):
 
 class Fuel(UUIDModel):
     fuel_price = models.FloatField(default=0)
+    currency = models.ForeignKey(Currency,on_delete=models.CASCADE, blank=True, null=True)
     station = models.ForeignKey(Station, on_delete=models.CASCADE)
+    exchange_rate = models.FloatField(default=0)
 
 
 class Transporter(UUIDModel):
@@ -79,6 +81,8 @@ class DiscountMaster(UUIDModel):
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     fuel_discount = models.FloatField(default=0)
+    currency = models.ForeignKey(Currency,on_delete=models.CASCADE, blank=True, null=True)
+    exchange_rate = models.FloatField(default=0)
     station = models.ForeignKey(Station, on_delete=models.CASCADE)
     
 
@@ -159,6 +163,7 @@ class Sellables(UUIDModel):
     name = models.CharField(max_length=20)
     manufacturer = models.ForeignKey(Manufacturer, on_delete=models.CASCADE, related_name="sellable")
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="sellables")
+    exchange_rate = models.FloatField(default=1)
     unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="sellables")
     unit_price = models.FloatField()
 
@@ -170,13 +175,14 @@ class TransporterBulkPayment(UUIDModel):
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="transporter_payment")
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE, related_name="transporter_payment")
     amount = models.FloatField(default=0)
+    exchange_rate = models.FloatField(default=0)
     payment_date = models.DateField()
 
     def save(self, *args, **kwargs):
         # set nomination status to validation pending
         transporter = self.transporter
         bm = transporter.bulk_money
-        exchange = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=self.currency).exchange_rate
+        exchange = self.exchange_rate
         amount = bm + (self.amount *(1/exchange))
         transporter.bulk_money = amount
         transporter.save()

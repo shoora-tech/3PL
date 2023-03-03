@@ -17,7 +17,7 @@ from dal import autocomplete
 # Register your models here.
 
 class AdvanceCashInline(admin.TabularInline):
-    fields = ["currency", "amount"]
+    fields = ["currency", "amount","exchange_rate"]
     extra = 0
     model = AdvanceCash
 
@@ -29,9 +29,12 @@ class AdvanceOthersInline(admin.TabularInline):
 
 
 class AdvanceFuelInline(admin.TabularInline):
-    fields = ["station", "fuel_quantity"]
+    fields = ["station","requested_fuel_quantity","requested_date", "approved_fuel_quantity","approved_date"]
     extra = 0
     model = AdvanceFuel
+
+
+    
 
 
 
@@ -132,14 +135,12 @@ class NominationAdmin(admin.ModelAdmin):
         return obj.created_at.date()
     
     def advance_cash(self, obj):
-        cash = obj.advance_cash.all()
+        others = obj.advance_cash.all()
         total = 0
-        for c in cash:
-            if c.currency.name != "USD":
-                exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=c.currency).exchange_rate
-                amount = c.amount * (1/exchange_rate)
-            else:
-                amount = c.amount
+        for o in others:
+            amt = o.amount
+            exchange_rate = o.exchange_rate
+            amount = amt* (1/exchange_rate)
             total += amount
         total = round(total, 2)
         return format_html(
@@ -152,7 +153,6 @@ class NominationAdmin(admin.ModelAdmin):
     def advance_fuel(self, obj):
         total = 0
         fuel = obj.advance_fuel.aggregate(total=Sum("net_amount"))
-        print("fuel ", fuel)
         if fuel['total']:
             total = round(fuel['total'], 2)
         # total = 0
@@ -175,7 +175,7 @@ class NominationAdmin(admin.ModelAdmin):
         total = 0
         for o in others:
             qty = o.quantity
-            exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=o.sellable.currency).exchange_rate
+            exchange_rate = o.sellable.exchange_rate
             amount = qty * o.sellable.unit_price * (1/exchange_rate)
             total += amount
         total = round(total, 2)
@@ -461,7 +461,7 @@ class NominationAdmin(admin.ModelAdmin):
 
 @admin.register(AdvanceCash)
 class AdvanceCashAdmin(admin.ModelAdmin):
-    list_display = ("nomination", "currency", "amount")
+    list_display = ("nomination", "currency", "amount","exchange_rate")
     def has_module_permission(self, request):
         # print("\n\n............................................................................\n\n")
         # print(request.user)
@@ -473,7 +473,7 @@ class AdvanceCashAdmin(admin.ModelAdmin):
 
 @admin.register(AdvanceFuel)
 class AdvanceFuelAdmin(admin.ModelAdmin):
-    list_display = ("station", "fuel_quantity")
+    list_display = ("station","requested_fuel_quantity","requested_date", "approved_fuel_quantity","approved_date")
     def has_module_permission(self, request):
         # print("\n\n............................................................................\n\n")
         # print(request.user)
@@ -588,7 +588,7 @@ class FullfillmentAdmin(admin.ModelAdmin):
         total = 0
         for c in cash:
             if c.currency.name != "USD":
-                exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=c.currency).exchange_rate
+                exchange_rate = c.exchange_rate
                 amount = c.amount * (1/exchange_rate)
             else:
                 amount = c.amount
@@ -596,17 +596,17 @@ class FullfillmentAdmin(admin.ModelAdmin):
         
         for f in fuel:
             fuel_price = Fuel.objects.filter(station=f.station).last()
-            qty = f.fuel_quantity
+            qty = f.approved_fuel_quantity
             amount = qty * fuel_price.fuel_price
             total += amount
         
         for o in others:
             qty = o.quantity
-            exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=o.sellable.currency).exchange_rate
+            exchange_rate = o.sellable.exchange_rate
             amount = qty * o.sellable.unit_price * (1/exchange_rate)
             total += amount
         
-        obj.net_to_be_paid = transit.invoice_value - obj.shortage_value - total
+        obj.net_to_be_paid = round((transit.invoice_value - obj.shortage_value - total),2)
         obj.invoice_value = nomination.rate * transit.locading_l20_quantity
         obj.profiltability = ((nomination.customer.price * transit.locading_l20_quantity)/1000) - transit.invoice_value
         obj.is_deleted = True
@@ -704,7 +704,7 @@ class SummaryAdmin(admin.ModelAdmin):
         total = 0
         for c in cash:
             if c.currency.name != "USD":
-                exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=c.currency).exchange_rate
+                exchange_rate = c.exchange_rate
                 amount = c.amount * (1/exchange_rate)
             else:
                 amount = c.amount
@@ -750,7 +750,7 @@ class SummaryAdmin(admin.ModelAdmin):
         total = 0
         for o in others:
             qty = o.quantity
-            exchange_rate = CurrencyExchange.objects.get(from_currency__name="USD", to_currency=o.sellable.currency).exchange_rate
+            exchange_rate = o.sellable.exchange_rate
             amount = qty * o.sellable.unit_price * (1/exchange_rate)
             total += amount
         total = round(total, 2)

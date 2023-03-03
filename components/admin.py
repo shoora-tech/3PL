@@ -15,7 +15,7 @@ admin.site.register(Station)
 admin.site.register(Fuel)
 
 class TransporterBulkPaymentInline(admin.TabularInline):
-    fields = ["currency", "amount", "payment_date"]
+    fields = ["currency", "amount","exchange_rate", "payment_date"]
     readonly_fields = ("created_at",)
     extra = 1
     model = TransporterBulkPayment
