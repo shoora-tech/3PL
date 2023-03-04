@@ -13,19 +13,10 @@ class Currency(UUIDModel):
         verbose_name_plural = "Currencies"
 
 
-class CurrencyExchange(UUIDModel):
-    exchange_rate = models.FloatField(default=0)
-    from_currency = models.ForeignKey(Currency, related_name="from_currency", on_delete=models.CASCADE, blank=True, null=True)
-    to_currency = models.ForeignKey(Currency, related_name="to_currency", on_delete=models.CASCADE, blank=True, null=True)
-    
-    class Meta:
-        verbose_name_plural = "Currency Exchange"
-
-
 class Product(UUIDModel):
     name = models.CharField(max_length=50)
     tolerance = models.FloatField(default=0, null=True, blank=True, verbose_name="Tolerance (%)")
-    cost = models.FloatField(default=0, null=True, blank=True, verbose_name="Cost (USD)")
+    # cost = models.FloatField(default=0, null=True, blank=True, verbose_name="Cost (USD)")
 
     def __str__(self):
         return self.name

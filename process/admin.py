@@ -155,14 +155,6 @@ class NominationAdmin(admin.ModelAdmin):
         fuel = obj.advance_fuel.aggregate(total=Sum("net_amount"))
         if fuel['total']:
             total = round(fuel['total'], 2)
-        # total = 0
-        # for f in fuel:
-        #     fuel_price = Fuel.objects.filter(station=f.station).last()
-        #     if fuel_price:
-        #         qty = f.fuel_quantity
-        #         amount = qty * fuel_price.fuel_price
-        #         total += amount
-        # total = round(total, 2)
         return format_html(
                     '<a href="{}">{}</a>&nbsp;',
                     reverse('admin:process_nomination_change', args=[obj.pk]),
@@ -575,15 +567,17 @@ class FullfillmentAdmin(admin.ModelAdmin):
         transit = Transit.objects.get(fullfillment__id=obj.id)
         # shortage 
         obj.shortage = transit.locading_l20_quantity - obj.off_loading_l20_quantity
+        
         # tolerance
         obj.tolerance = (nomination.product.tolerance / 100) * transit.locading_l20_quantity
         # net shortage
         net_shortage = obj.shortage - obj.tolerance
         obj.net_shortage = 0 if net_shortage < 0 else net_shortage
-        obj.shortage_value = obj.net_shortage * nomination.product.cost
+        # obj.shortage_value = obj.net_shortage * nomination.product.cost
+        obj.shortage_value = obj.net_shortage * obj.product_cost
         # All Advances
         cash = nomination.advance_cash.all()
-        fuel = nomination.advance_fuel.all()
+        advance_fuel = nomination.advance_fuel.all()
         others = nomination.advance_others.all()
         total = 0
         for c in cash:
@@ -594,17 +588,46 @@ class FullfillmentAdmin(admin.ModelAdmin):
                 amount = c.amount
             total += amount
         
-        for f in fuel:
-            fuel_price = Fuel.objects.filter(station=f.station).last()
-            qty = f.approved_fuel_quantity
-            amount = qty * fuel_price.fuel_price
-            total += amount
+        """
+            dm = DiscountMaster.objects.filter(station=self.station, transporter__nomination=nomination).last()
+            if not dm:
+                dm = 0
+            fuel = Fuel.objects.filter(station=self.station).last()
+            fp = fuel.fuel_price
+            exchange = fuel.exchange_rate
+            amount = round(fp *(1/exchange),2)
+            fd = dm.fuel_discount
+            exchange = dm.exchange_rate
+            discount_per_liter = round(fd *(1/exchange),2)
+            net_amount = (amount - discount_per_liter) * self.approved_fuel_quantity
+            self.discount = discount_per_liter
+            self.net_amount = net_amount
+        """
+        
+        for f in advance_fuel:
+            dm = DiscountMaster.objects.filter(station=f.station, transporter__nomination=nomination).last()
+            fd = 0
+            if dm:
+                fd = dm.fuel_discount
+            if not dm:
+                dm = 0
+            fuel = Fuel.objects.filter(station=f.station).last()
+            fp = fuel.fuel_price
+            exchange = fuel.exchange_rate
+            amount = round(fp *(1/exchange),2)
+            discount_per_liter = round(fd *(1/exchange),2)
+            net_amount = (amount - discount_per_liter) * f.approved_fuel_quantity
+            # qty = f.approved_fuel_quantity
+            # amount = qty * fuel_price.fuel_price
+            total += net_amount
         
         for o in others:
             qty = o.quantity
             exchange_rate = o.sellable.exchange_rate
             amount = qty * o.sellable.unit_price * (1/exchange_rate)
             total += amount
+        
+        
         
         obj.net_to_be_paid = round((transit.invoice_value - obj.shortage_value - total),2)
         obj.invoice_value = nomination.rate * transit.locading_l20_quantity
@@ -701,10 +724,13 @@ class SummaryAdmin(admin.ModelAdmin):
 
     def advance_cash(self, obj):
         cash = obj.nomination.advance_cash.all()
+        print("cash -> ", cash)
         total = 0
         for c in cash:
+            print("c -> ", c)
             if c.currency.name != "USD":
                 exchange_rate = c.exchange_rate
+                print("exchange_rate ", exchange_rate)
                 amount = c.amount * (1/exchange_rate)
             else:
                 amount = c.amount
@@ -864,7 +890,7 @@ class SummaryAdmin(admin.ModelAdmin):
         bm = transporter.bulk_money
         if offload.net_to_be_paid >= 0:
             bm = bm - offload.net_to_be_paid
-            transporter.bulk_money = bm
+            transporter.bulk_money = round(bm, 2)
             transporter.save()
         offload.dues_paid = True
         offload.save()

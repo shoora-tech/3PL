@@ -5,14 +5,13 @@ from .models import *
 
 admin.site.register(Currency)
 
-@admin.register(CurrencyExchange)
-class AdvanceCashAdmin(admin.ModelAdmin):
-    list_display = ("from_currency", "to_currency", "exchange_rate")
-
 admin.site.register(Product)
 admin.site.register(Company)
 admin.site.register(Station)
-admin.site.register(Fuel)
+
+@admin.register(Fuel)
+class FuelAdmin(admin.ModelAdmin):
+    list_display = ("fuel_price","currency","exchange_rate", "station")
 
 class TransporterBulkPaymentInline(admin.TabularInline):
     fields = ["currency", "amount","exchange_rate", "payment_date"]
@@ -28,7 +27,9 @@ class TransporterAdmin(admin.ModelAdmin):
     inlines = (TransporterBulkPaymentInline,)
 
 
-admin.site.register(DiscountMaster)
+@admin.register(DiscountMaster)
+class DiscountMasterAdmin(admin.ModelAdmin):
+    list_display = ("transporter","station", "fuel_discount", "currency", "exchange_rate")
 
 @admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):

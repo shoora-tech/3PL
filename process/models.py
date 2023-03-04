@@ -20,6 +20,7 @@ class Summary(UUIDModel):
 class Fullfillment(UUIDModel):
     off_loading_date = models.DateField()
     off_loading_l20_quantity = models.FloatField()
+    product_cost = models.FloatField(default=0, verbose_name="Product Cost (USD)")
     shortage = models.FloatField(blank=True, null=True)
     tolerance = models.FloatField(blank=True, null=True) # tol_product * loading_qty
     net_shortage = models.FloatField(blank=True, null=True) # shortahge - tolerance, neg == 0, +ve
@@ -139,16 +140,19 @@ class AdvanceFuel(UUIDModel):
         nomination.nomination_status = Nomination.VALIDATION_PENDING
         nomination.save()
         # calculate net amount after discount
+        fd = 0
         dm = DiscountMaster.objects.filter(station=self.station, transporter__nomination=nomination).last()
+        if dm:
+            fd = dm.fuel_discount
         fuel = Fuel.objects.filter(station=self.station).last()
         fp = fuel.fuel_price
         exchange = fuel.exchange_rate
         amount = round(fp *(1/exchange),2)
-        fd = dm.fuel_discount
+        # fd = dm.fuel_discount
         exchange = dm.exchange_rate
-        discount = round(fd *(1/exchange),2)
-        net_amount = (amount * self.approved_fuel_quantity)-discount
-        self.discount = discount
+        discount_per_liter = round(fd *(1/exchange),2)
+        net_amount = (amount - discount_per_liter) * self.approved_fuel_quantity
+        self.discount = discount_per_liter
         self.net_amount = net_amount
         super().save(*args, **kwargs)
 
