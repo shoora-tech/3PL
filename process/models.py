@@ -112,7 +112,8 @@ class AdvanceOthers(UUIDModel):
 class AdvanceCash(UUIDModel):
     nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="advance_cash")
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="advance_cash")
-    amount = models.FloatField()
+    amount = models.FloatField(default=0)
+    exchange_rate = models.FloatField(default=0)
 
     def save(self, *args, **kwargs):
         # set nomination status to validation pending
@@ -125,7 +126,10 @@ class AdvanceCash(UUIDModel):
 class AdvanceFuel(UUIDModel):
     station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="advance_fuel")
     nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="advance_fuel")
-    fuel_quantity = models.FloatField()
+    requested_fuel_quantity = models.FloatField(default=0)
+    requested_date = models.DateField(blank=True, null=True)
+    approved_fuel_quantity = models.FloatField(default=0)
+    approved_date = models.DateField(blank=True, null=True)
     discount = models.FloatField(default=0)
     net_amount = models.FloatField(default=0)
 
@@ -137,8 +141,13 @@ class AdvanceFuel(UUIDModel):
         # calculate net amount after discount
         dm = DiscountMaster.objects.filter(station=self.station, transporter__nomination=nomination).last()
         fuel = Fuel.objects.filter(station=self.station).last()
-        discount = dm.fuel_discount
-        net_amount = (fuel.fuel_price * self.fuel_quantity)*((100-discount)/100)
+        fp = fuel.fuel_price
+        exchange = fuel.exchange_rate
+        amount = round(fp *(1/exchange),2)
+        fd = dm.fuel_discount
+        exchange = dm.exchange_rate
+        discount = round(fd *(1/exchange),2)
+        net_amount = (amount * self.approved_fuel_quantity)-discount
         self.discount = discount
         self.net_amount = net_amount
         super().save(*args, **kwargs)

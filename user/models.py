@@ -29,9 +29,11 @@ class AccountManager(BaseUserManager):
         user.save(using=self._db)
         if user.user_type:
             # based on user type assign group
-            group = Group.objects.get(name=user.user_type) 
-            group.user_set.add(user)
-            print("user added to group")
+            try:
+                group = Group.objects.get(name=user.user_type) 
+                group.user_set.add(user)
+            except Group.DoesNotExist:
+                pass
         return user
     
     def create_superuser(self, email, password):
