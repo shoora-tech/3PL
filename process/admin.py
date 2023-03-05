@@ -612,14 +612,30 @@ class FullfillmentAdmin(admin.ModelAdmin):
             if not dm:
                 dm = 0
             fuel = Fuel.objects.filter(station=f.station).last()
-            fp = fuel.fuel_price
-            exchange = fuel.exchange_rate
-            amount = round(fp *(1/exchange),2)
-            discount_per_liter = round(fd *(1/exchange),2)
-            net_amount = (amount - discount_per_liter) * f.approved_fuel_quantity
-            # qty = f.approved_fuel_quantity
-            # amount = qty * fuel_price.fuel_price
-            total += net_amount
+            fuel_pr = f.fuel_price
+            if fuel_pr : 
+                fp = f.fuel_price
+                exchange = f.exchange_rate
+                amount = round(fp *(1/exchange),2)
+                # fd = dm.fuel_discount
+                exchange = dm.exchange_rate
+                discount_per_liter = round(fd *(1/exchange),2)
+                net_amount = (amount - discount_per_liter) * f.approved_fuel_quantity
+                self.discount = discount_per_liter
+                self.net_amount = net_amount
+                total += net_amount
+
+            else:     
+                fp = fuel.fuel_price
+                exchange = fuel.exchange_rate
+                amount = round(fp *(1/exchange),2)
+                # fd = dm.fuel_discount
+                exchange = dm.exchange_rate
+                discount_per_liter = round(fd *(1/exchange),2)
+                net_amount = (amount - discount_per_liter) * self.approved_fuel_quantity
+                self.discount = discount_per_liter
+                self.net_amount = net_amount
+                total += net_amount
         
         for o in others:
             qty = o.quantity
