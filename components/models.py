@@ -153,10 +153,10 @@ class Manufacturer(UUIDModel):
 class Sellables(UUIDModel):
     name = models.CharField(max_length=20)
     manufacturer = models.ForeignKey(Manufacturer, on_delete=models.CASCADE, related_name="sellable")
-    currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="sellables")
-    exchange_rate = models.FloatField(default=1)
-    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="sellables")
-    unit_price = models.FloatField()
+    # currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="sellables")
+    # exchange_rate = models.FloatField(default=1)
+    # unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="sellables")
+    # unit_price = models.FloatField()
 
     def __str__(self):
         return self.name

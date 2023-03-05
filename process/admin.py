@@ -23,13 +23,13 @@ class AdvanceCashInline(admin.TabularInline):
 
 
 class AdvanceOthersInline(admin.TabularInline):
-    fields = ["sellable", "quantity"]
+    fields = ["sellable","unit","unit_price","currency","exchange_rate",  "quantity"]
     extra = 0
     model = AdvanceOthers
 
 
 class AdvanceFuelInline(admin.TabularInline):
-    fields = ["station","requested_fuel_quantity","requested_date", "approved_fuel_quantity","approved_date"]
+    fields = ["station","requested_fuel_quantity","requested_date", "approved_fuel_quantity","approved_date","fuel_price","currency","exchange_rate"]
     extra = 0
     model = AdvanceFuel
 
@@ -167,8 +167,8 @@ class NominationAdmin(admin.ModelAdmin):
         total = 0
         for o in others:
             qty = o.quantity
-            exchange_rate = o.sellable.exchange_rate
-            amount = qty * o.sellable.unit_price * (1/exchange_rate)
+            exchange_rate = o.exchange_rate
+            amount = qty * o.unit_price * (1/exchange_rate)
             total += amount
         total = round(total, 2)
         return format_html(
@@ -465,7 +465,7 @@ class AdvanceCashAdmin(admin.ModelAdmin):
 
 @admin.register(AdvanceFuel)
 class AdvanceFuelAdmin(admin.ModelAdmin):
-    list_display = ("station","requested_fuel_quantity","requested_date", "approved_fuel_quantity","approved_date")
+    list_display = ("station","requested_fuel_quantity","requested_date", "approved_fuel_quantity","approved_date","fuel_price","currency","exchange_rate")
     def has_module_permission(self, request):
         # print("\n\n............................................................................\n\n")
         # print(request.user)
@@ -476,7 +476,7 @@ class AdvanceFuelAdmin(admin.ModelAdmin):
 
 @admin.register(AdvanceOthers)
 class AdvanceOthersAdmin(admin.ModelAdmin):
-    list_display = ("sellable", "quantity")
+    list_display = ("sellable","unit","unit_price","currency","exchange_rate", "quantity")
     def has_module_permission(self, request):
         # print("\n\n............................................................................\n\n")
         # print(request.user)
@@ -623,8 +623,8 @@ class FullfillmentAdmin(admin.ModelAdmin):
         
         for o in others:
             qty = o.quantity
-            exchange_rate = o.sellable.exchange_rate
-            amount = qty * o.sellable.unit_price * (1/exchange_rate)
+            exchange_rate = o.exchange_rate
+            amount = qty * o.unit_price * (1/exchange_rate)
             total += amount
         
         
@@ -776,8 +776,8 @@ class SummaryAdmin(admin.ModelAdmin):
         total = 0
         for o in others:
             qty = o.quantity
-            exchange_rate = o.sellable.exchange_rate
-            amount = qty * o.sellable.unit_price * (1/exchange_rate)
+            exchange_rate = o.exchange_rate
+            amount = qty * o.unit_price * (1/exchange_rate)
             total += amount
         total = round(total, 2)
         return total

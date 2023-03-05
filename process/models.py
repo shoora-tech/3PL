@@ -101,6 +101,10 @@ class AdvanceOthers(UUIDModel):
     nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="advance_others")
     sellable = models.ForeignKey(Sellables, on_delete=models.CASCADE, related_name="advance_others")
     quantity = models.FloatField()
+    currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="sellables", blank=True, null=True)
+    exchange_rate = models.FloatField(default=1)
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="sellables", blank=True, null=True)
+    unit_price = models.FloatField(default=0)
 
     def save(self, *args, **kwargs):
         # set nomination status to validation pending
@@ -133,6 +137,9 @@ class AdvanceFuel(UUIDModel):
     approved_date = models.DateField(blank=True, null=True)
     discount = models.FloatField(default=0)
     net_amount = models.FloatField(default=0)
+    fuel_price = models.FloatField(default=0)
+    currency = models.ForeignKey(Currency,on_delete=models.CASCADE, blank=True, null=True)
+    exchange_rate = models.FloatField(default=0)
 
     def save(self, *args, **kwargs):
         # set nomination status to validation pending
@@ -145,15 +152,28 @@ class AdvanceFuel(UUIDModel):
         if dm:
             fd = dm.fuel_discount
         fuel = Fuel.objects.filter(station=self.station).last()
-        fp = fuel.fuel_price
-        exchange = fuel.exchange_rate
-        amount = round(fp *(1/exchange),2)
-        # fd = dm.fuel_discount
-        exchange = dm.exchange_rate
-        discount_per_liter = round(fd *(1/exchange),2)
-        net_amount = (amount - discount_per_liter) * self.approved_fuel_quantity
-        self.discount = discount_per_liter
-        self.net_amount = net_amount
+        fuel_pr = self.fuel_price
+        if fuel_pr : 
+            fp = self.fuel_price
+            exchange = self.exchange_rate
+            amount = round(fp *(1/exchange),2)
+            # fd = dm.fuel_discount
+            exchange = dm.exchange_rate
+            discount_per_liter = round(fd *(1/exchange),2)
+            net_amount = (amount - discount_per_liter) * self.approved_fuel_quantity
+            self.discount = discount_per_liter
+            self.net_amount = net_amount
+
+        else:     
+            fp = fuel.fuel_price
+            exchange = fuel.exchange_rate
+            amount = round(fp *(1/exchange),2)
+            # fd = dm.fuel_discount
+            exchange = dm.exchange_rate
+            discount_per_liter = round(fd *(1/exchange),2)
+            net_amount = (amount - discount_per_liter) * self.approved_fuel_quantity
+            self.discount = discount_per_liter
+            self.net_amount = net_amount
         super().save(*args, **kwargs)
 
 
