@@ -148,9 +148,12 @@ class AdvanceFuel(UUIDModel):
         nomination.save()
         # calculate net amount after discount
         fd = 0
+        discount_exchange=1
         dm = DiscountMaster.objects.filter(station=self.station, transporter__nomination=nomination).last()
         if dm:
             fd = dm.fuel_discount
+            discount_exchange = dm.exchange_rate
+
         fuel = Fuel.objects.filter(station=self.station).last()
         fuel_pr = self.fuel_price
         if fuel_pr : 
@@ -158,8 +161,8 @@ class AdvanceFuel(UUIDModel):
             exchange = self.exchange_rate
             amount = round(fp *(1/exchange),2)
             # fd = dm.fuel_discount
-            exchange = dm.exchange_rate
-            discount_per_liter = round(fd *(1/exchange),2)
+            #discount_exchange = dm.exchange_rate
+            discount_per_liter = round(fd *(1/discount_exchange),2)
             net_amount = (amount - discount_per_liter) * self.approved_fuel_quantity
             self.discount = discount_per_liter
             self.net_amount = net_amount
