@@ -118,7 +118,7 @@ class AdvanceCash(UUIDModel):
     nomination = models.ForeignKey(Nomination, on_delete=models.CASCADE, related_name="advance_cash")
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="advance_cash")
     amount = models.FloatField(default=0)
-    exchange_rate = models.FloatField(default=0)
+    exchange_rate = models.FloatField(default=1)
 
     def save(self, *args, **kwargs):
         # set nomination status to validation pending
