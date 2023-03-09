@@ -140,8 +140,14 @@ class NominationAdmin(admin.ModelAdmin):
         for o in others:
             amt = o.amount
             exchange_rate = o.exchange_rate
-            amount = amt* (1/exchange_rate)
-            total += amount
+            if exchange_rate :
+                amount = amt*(1/exchange_rate)
+                total += amount
+            else:
+                exchange_rate = 1
+                amount = amt*(1/exchange_rate)
+                total += amount
+
         total = round(total, 2)
         return format_html(
                     '<a href="{}">{}</a>&nbsp;',
