@@ -11,7 +11,7 @@ admin.site.register(Station)
 
 @admin.register(Fuel)
 class FuelAdmin(admin.ModelAdmin):
-    list_display = ("fuel_price","currency","exchange_rate", "station")
+    list_display = ("fuel_price","currency","exchange_rate","local_exchange_rate", "station")
 
 class TransporterBulkPaymentInline(admin.TabularInline):
     fields = ["currency", "amount","exchange_rate", "payment_date"]
@@ -29,7 +29,7 @@ class TransporterAdmin(admin.ModelAdmin):
 
 @admin.register(DiscountMaster)
 class DiscountMasterAdmin(admin.ModelAdmin):
-    list_display = ("transporter","station", "fuel_discount", "currency", "exchange_rate")
+    list_display = ("transporter","station", "fuel_discount", "currency", "exchange_rate","local_exchange_rate")
 
 @admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):

@@ -17,19 +17,19 @@ from dal import autocomplete
 # Register your models here.
 
 class AdvanceCashInline(admin.TabularInline):
-    fields = ["currency", "amount","exchange_rate"]
+    fields = ["currency", "amount","exchange_rate","local_exchange_rate"]
     extra = 0
     model = AdvanceCash
 
 
 class AdvanceOthersInline(admin.TabularInline):
-    fields = ["sellable","unit","unit_price","currency","exchange_rate",  "quantity"]
+    fields = ["sellable","unit","unit_price","currency","exchange_rate",  "quantity","local_exchange_rate"]
     extra = 0
     model = AdvanceOthers
 
 
 class AdvanceFuelInline(admin.TabularInline):
-    fields = ["station","requested_fuel_quantity","requested_date", "approved_fuel_quantity","approved_date","fuel_price","currency","exchange_rate"]
+    fields = ["station","requested_fuel_quantity","requested_date", "approved_fuel_quantity","approved_date","fuel_price","currency","exchange_rate","local_exchange_rate"]
     extra = 0
     model = AdvanceFuel
 
@@ -101,7 +101,7 @@ class NominationAdmin(admin.ModelAdmin):
         "action_button"
     )
     form = NominationForm
-    readonly_fields = ("transit", "offload", "stage", "nomination_status", "sales_approved", "summary")
+    readonly_fields = ("transit", "offload", "stage", "nomination_status", "sales_approved", "summary","summary_in_local_currency")
     inlines = (AdvanceCashInline, AdvanceFuelInline, AdvanceOthersInline)
 
     def get_queryset(self, request):
@@ -266,29 +266,7 @@ class NominationAdmin(admin.ModelAdmin):
                     reverse('admin:nomination-approve-sale', args=[obj.pk])
                 )
         return "Sales Approved"
-    
-    # def paid(self, obj):
-    #     if obj.offload and not obj.offload.dues_paid:
-    #         transporter = obj.transporter
-    #         try:
-    #             if transporter.bulk_money >= obj.offload.net_to_be_paid:
-    #                 return format_html(
-    #                         '<a class="button" href="{}">Pay</a>&nbsp;',
-    #                         reverse('admin:nomination-paid', args=[obj.pk])
-    #                     )
-    #         except Exception as e:
-    #             pass
-    #     elif obj.offload and obj.offload.dues_paid:
-    #         return format_html(
-    #             "<p>PAID<p>"
-    #         )
-
-    #     return "---"
-    
-    
-    
-
-    
+      
 
     def custom_button(self, obj):
         if obj.nomination_status == Nomination.VALIDATION_PENDING:
@@ -360,10 +338,7 @@ class NominationAdmin(admin.ModelAdmin):
             self.admin_site.admin_view(self.approve_sales),
             name='nomination-approve-sale'
             ),
-            # path("<nomination_id>/paid/",
-            # self.admin_site.admin_view(self.dues),
-            # name='nomination-paid'
-            # ),
+            
             
         ]
         return custom_urls + urls
@@ -419,6 +394,23 @@ class NominationAdmin(admin.ModelAdmin):
         nomination.save()
         transit.save()
         offload.save()
+
+        #creating summary in local currency
+        summary_in_local_currency = SummaryInLocalCurrency.objects.create(
+            nomination = nomination,
+            transit = transit,
+            fullfillment = offload,
+            summary = summary,
+        )
+        summary_in_local_currency.save()
+        nomination.summary_in_local_currency = summary_in_local_currency
+        transit.summary_in_local_currency = summary_in_local_currency
+        offload.summary_in_local_currency = summary_in_local_currency
+        summary.summary_in_local_currency = summary_in_local_currency
+        nomination.save()
+        transit.save()
+        offload.save()
+        summary.save()
         return HttpResponseRedirect(reverse('admin:process_fullfillment_change', args=(offload.id,)))
     
     def approve_sales(self, request, nomination_id, *args, **kwargs):
@@ -427,39 +419,12 @@ class NominationAdmin(admin.ModelAdmin):
         nomination.save()
         return HttpResponseRedirect(reverse('admin:process_nomination_changelist'))
     
-    # def dues(self, request, nomination_id, *args, **kwargs):
-    #     nomination = self.get_object(request, nomination_id)
-    #     transporter = nomination.transporter
-    #     offload = nomination.offload
-    #     bm = transporter.bulk_money
-    #     bm = bm - offload.net_to_be_paid
-    #     transporter.bulk_money = bm
-    #     transporter.save()
-    #     offload.dues_paid = True
-    #     nomination.is_deleted = True
-    #     nomination.transit.is_deleted = True
-    #     nomination.offload.is_deleted = True
-        
-    #     transit = nomination.transit
-    #     summary = Summary.objects.create(
-    #         nomination = nomination,
-    #         transit = transit,
-    #         fullfillment = offload,
-    #     )
-    #     summary.save()
-    #     nomination.summary = summary
-    #     transit.summary = summary
-    #     offload.summary = summary
-    #     nomination.save()
-    #     transit.save()
-    #     offload.save()
-    #     return HttpResponseRedirect(reverse('admin:process_summary_change', args=(summary.id,)))
-
+    
 
 
 @admin.register(AdvanceCash)
 class AdvanceCashAdmin(admin.ModelAdmin):
-    list_display = ("nomination", "currency", "amount","exchange_rate")
+    list_display = ("nomination", "currency", "amount","exchange_rate","local_exchange_rate")
     def has_module_permission(self, request):
         # print("\n\n............................................................................\n\n")
         # print(request.user)
@@ -471,7 +436,7 @@ class AdvanceCashAdmin(admin.ModelAdmin):
 
 @admin.register(AdvanceFuel)
 class AdvanceFuelAdmin(admin.ModelAdmin):
-    list_display = ("station","requested_fuel_quantity","requested_date", "approved_fuel_quantity","approved_date","fuel_price","currency","exchange_rate")
+    list_display = ("station","requested_fuel_quantity","requested_date", "approved_fuel_quantity","approved_date","fuel_price","currency","exchange_rate","local_exchange_rate")
     def has_module_permission(self, request):
         # print("\n\n............................................................................\n\n")
         # print(request.user)
@@ -482,7 +447,7 @@ class AdvanceFuelAdmin(admin.ModelAdmin):
 
 @admin.register(AdvanceOthers)
 class AdvanceOthersAdmin(admin.ModelAdmin):
-    list_display = ("sellable","unit","unit_price","currency","exchange_rate", "quantity")
+    list_display = ("sellable","unit","unit_price","currency","exchange_rate", "quantity","local_exchange_rate")
     def has_module_permission(self, request):
         # print("\n\n............................................................................\n\n")
         # print(request.user)
@@ -495,6 +460,10 @@ class AdvanceOthersAdmin(admin.ModelAdmin):
 class NominationInline(admin.StackedInline):
     exclude = ('is_deleted',)
     readonly_fields = [
+        "local_exchange_rate",
+        "transit",
+        "summary",
+        "summary_in_local_currency",
         "transporter",
         "tanker",
         "vehicle",
@@ -518,6 +487,12 @@ class NominationInline(admin.StackedInline):
 class TransitInline(admin.TabularInline):
     exclude = ('is_deleted',)
     readonly_fields = [
+        "invoice_value",
+        "invoice_value_local",
+        "invoice_number",
+        "invoice_date",
+        "summary",
+        "summary_in_local_currency",
         "loading_date",
         "loading_base_quantity",
         "locading_l20_quantity",
@@ -530,7 +505,7 @@ class TransitInline(admin.TabularInline):
 class TransmitAdmin(admin.ModelAdmin):
     exclude = ('is_deleted',)
     inlines = (NominationInline,)
-    readonly_fields = ("fullfillment", "invoice_value", "summary")
+    readonly_fields = ("fullfillment", "invoice_value", "summary","summary_in_local_currency","invoice_value_local",)
 
     def response_add(self, request, obj, post_url_continue=None):
         return redirect('/admin/process/nomination')
@@ -542,6 +517,8 @@ class TransmitAdmin(admin.ModelAdmin):
         # print("rate ", obj.__dict__)
         nomination = Nomination.objects.get(transit__id=obj.id)
         obj.invoice_value = (nomination.rate * obj.locading_l20_quantity)/1000
+        obj.invoice_value_local = (nomination.rate*nomination.local_exchange_rate * obj.locading_l20_quantity) /1000
+
         super().save_model(request, obj, form, change)
     
     def has_module_permission(self, request):
@@ -563,7 +540,11 @@ class FullfillmentAdmin(admin.ModelAdmin):
         "shortage_value",
         "net_to_be_paid",
         "profiltability",
+        "shortage_value_local",
+        "net_to_be_paid_local",
+        "profiltability_local",
         "summary",
+        "summary_in_local_currency",
         "dues_paid",
     )
 
@@ -581,6 +562,8 @@ class FullfillmentAdmin(admin.ModelAdmin):
         obj.net_shortage = 0 if net_shortage < 0 else net_shortage
         # obj.shortage_value = obj.net_shortage * nomination.product.cost
         obj.shortage_value = obj.net_shortage * obj.product_cost
+        #shortage value in local
+        obj.shortage_value_local = obj.net_shortage * obj.product_cost * obj.local_exchange_rate
         # All Advances
         cash = nomination.advance_cash.all()
         advance_fuel = nomination.advance_fuel.all()
@@ -594,21 +577,7 @@ class FullfillmentAdmin(admin.ModelAdmin):
                 amount = c.amount
             total += amount
         
-        """
-            dm = DiscountMaster.objects.filter(station=self.station, transporter__nomination=nomination).last()
-            if not dm:
-                dm = 0
-            fuel = Fuel.objects.filter(station=self.station).last()
-            fp = fuel.fuel_price
-            exchange = fuel.exchange_rate
-            amount = round(fp *(1/exchange),2)
-            fd = dm.fuel_discount
-            exchange = dm.exchange_rate
-            discount_per_liter = round(fd *(1/exchange),2)
-            net_amount = (amount - discount_per_liter) * self.approved_fuel_quantity
-            self.discount = discount_per_liter
-            self.net_amount = net_amount
-        """
+        
         
         for f in advance_fuel:
             dm = DiscountMaster.objects.filter(station=f.station, transporter__nomination=nomination).last()
@@ -638,7 +607,7 @@ class FullfillmentAdmin(admin.ModelAdmin):
                 # fd = dm.fuel_discount
                 exchange = dm.exchange_rate
                 discount_per_liter = round(fd *(1/exchange),2)
-                net_amount = (amount - discount_per_liter) * self.approved_fuel_quantity
+                net_amount = (amount - discount_per_liter) * f.approved_fuel_quantity
                 self.discount = discount_per_liter
                 self.net_amount = net_amount
                 total += net_amount
@@ -648,12 +617,71 @@ class FullfillmentAdmin(admin.ModelAdmin):
             exchange_rate = o.exchange_rate
             amount = qty * o.unit_price * (1/exchange_rate)
             total += amount
+
+        #total for currency in local
+        total_local = 0
+        for o in cash:
+            amt = o.amount
+            exchange_rate = o.local_exchange_rate
+            if exchange_rate :
+                amount = amt*exchange_rate
+                total_local += amount
+            else:
+                exchange_rate = 1
+                amount = amt*exchange_rate
+                total_local += amount
+        
+        
+        
+        for f in advance_fuel:
+            dm = DiscountMaster.objects.filter(station=f.station, transporter__nomination=nomination).last()
+            fd = 0
+            if dm:
+                fd = dm.fuel_discount
+            if not dm:
+                dm = 0
+            fuel = Fuel.objects.filter(station=f.station).last()
+            fuel_pr = f.fuel_price
+            if fuel_pr : 
+                fp = f.fuel_price
+                exchange = f.local_exchange_rate 
+                amount = round(fp * exchange,2)
+                # fd = dm.fuel_discount
+                exchange = dm.local_exchange_rate 
+                discount_per_liter = round(fd * exchange,2)
+                net_amount = (amount - discount_per_liter) * f.approved_fuel_quantity
+                self.discount = discount_per_liter
+                self.net_amount = net_amount
+                total_local += net_amount
+
+            else:     
+                fp = fuel.fuel_price
+                exchange = fuel.local_exchange_rate 
+                amount = round(fp *exchange,2)
+                exchange = dm.local_exchange_rate 
+                discount_per_liter = round(fd *exchange,2)
+                net_amount = (amount - discount_per_liter) * f.approved_fuel_quantity
+                self.discount = discount_per_liter
+                self.net_amount = net_amount
+                total_local += net_amount
+        
+        for o in others:
+            qty = o.quantity
+            exchange_rate = o.local_exchange_rate 
+            amount = qty * o.unit_price * exchange_rate
+            total_local += amount    
         
         
         
         obj.net_to_be_paid = round((transit.invoice_value - obj.shortage_value - total),2)
         obj.invoice_value = nomination.rate * transit.locading_l20_quantity
         obj.profiltability = ((nomination.customer.price * transit.locading_l20_quantity)/1000) - transit.invoice_value
+        #invoice value, net to be paid, profitability for local currency
+        obj.invoice_value_local = nomination.rate*nomination.local_exchange_rate * transit.locading_l20_quantity 
+        obj.net_to_be_paid_local = round((transit.invoice_value_local - obj.shortage_value_local - total_local),2)
+        obj.profiltability_local = ((nomination.customer.price*nomination.customer.local_exchange_rate * transit.locading_l20_quantity)/1000) - transit.invoice_value_local
+
+
         obj.is_deleted = True
         nomination.is_deleted = True
         nomination.save()
@@ -684,6 +712,9 @@ class FullfilmentInline(admin.TabularInline):
         "shortage_value",
         "net_to_be_paid",
         "profiltability",
+        "shortage_value_local",
+        "net_to_be_paid_local",
+        "profiltability_local",
     ]
     extra = 0
     model = Fullfillment
@@ -724,8 +755,10 @@ class SummaryAdmin(admin.ModelAdmin):
     readonly_fields = (
         "nomination",
         "transit",
-        "fullfillment"
+        "fullfillment",
+        "summary_in_local_currency"
     )
+    exclude = ("is_deleted",)
 
     def get_urls(self):
         urls = super().get_urls()
@@ -746,13 +779,10 @@ class SummaryAdmin(admin.ModelAdmin):
 
     def advance_cash(self, obj):
         cash = obj.nomination.advance_cash.all()
-        print("cash -> ", cash)
         total = 0
         for c in cash:
-            print("c -> ", c)
             if c.currency.name != "USD":
                 exchange_rate = c.exchange_rate
-                print("exchange_rate ", exchange_rate)
                 amount = c.amount * (1/exchange_rate)
             else:
                 amount = c.amount
@@ -762,19 +792,10 @@ class SummaryAdmin(admin.ModelAdmin):
 
 
     def advance_fuel(self, obj):
-        # fuel = obj.nomination.advance_fuel.all()
         total = 0
         fuel = obj.nomination.advance_fuel.aggregate(total=Sum("net_amount"))
         if fuel['total']:
             total = round(fuel['total'], 2)
-        # total = 0
-        # for f in fuel:
-        #     fuel_price = Fuel.objects.filter(station=f.station).last()
-        #     if fuel_price:
-        #         qty = f.fuel_quantity
-        #         amount = qty * fuel_price.fuel_price
-        #         total += amount
-        # total = round(total, 2)
         return total
 
     def rate(self, obj):
@@ -929,4 +950,230 @@ class SummaryAdmin(admin.ModelAdmin):
             if request.user.is_superuser or request.user.user_type == User.ADMIN:
                 return True
         return False
+    
+
+
+#Summary Model for local currency
+class SummaryInline(admin.TabularInline):
+    exclude = ('is_deleted',)
+    readonly_fields = [
+        "nomination",
+        "transit",
+        "fullfillment"
+    ]
+    extra = 0
+    model = Summary
+
+@admin.register(SummaryInLocalCurrency)
+class SummaryInLocalCurrencyAdmin(admin.ModelAdmin):    
+    inlines = (NominationInline, TransitInline, FullfilmentInline,SummaryInline)
+    list_display = (
+        "transporter",
+        "nomination_date",
+        "vehicle",
+        "tanker",
+        "customer",
+        "product",
+        "advance_cash",
+        "advance_fuel",
+        "advance_others",
+        "base_quantity",
+        "l20_quantity",
+        "loading_date",
+        "release_date",
+        "rate",
+        "invoice_value",
+        "transporter_invoice_number",
+        "transporter_invoice_date",
+        "ofloading_quantity",
+        "offloading_date",
+        "shortage",
+        "tolerance",
+        "net_shortage",
+        "shortage_value",
+        "net_to_be_paid",
+        "profitability",
+        "paid",
+        "sales_approval",
+        "stage",
+    )
+    readonly_fields = (
+        "nomination",
+        "transit",
+        "fullfillment",
+    )
+    exclude = ("is_deleted",)
+
+   
+
+    def transporter(self, obj):
+        return obj.nomination.transporter
+
+    def nomination_date(self, obj):
+        return obj.nomination.created_at.date()
+
+    def advance_cash(self, obj):
+        cash = obj.nomination.advance_cash.all()
+        total = 0
+        for o in cash:
+            amt = o.amount
+            exchange_rate = o.local_exchange_rate
+            if exchange_rate :
+                amount = amt*exchange_rate
+                total += amount
+            else:
+                exchange_rate = 1
+                amount = amt*exchange_rate
+                total += amount
+
+        total = round(total, 2)
+        return total
+
+
+    def advance_fuel(self, obj):
+        total = 0
+        fuel = obj.nomination.advance_fuel.aggregate(total=Sum("local_net_amount"))
+        if fuel['total']:
+            total = round(fuel['total'], 2)
+        return total
+
+    def rate(self, obj):
+        return obj.nomination.rate
+
+    def vehicle(self, obj):
+        return obj.nomination.vehicle
+
+    def tanker(self, obj):
+        return obj.nomination.tanker
+
+    def customer(self, obj):
+        return obj.nomination.customer
+
+    def product(self, obj):
+        return obj.nomination.product
+
+
+    def advance_others(self, obj):
+        others = obj.nomination.advance_others.all()
+        total = 0
+        for o in others:
+            qty = o.quantity
+            exchange_rate = o.local_exchange_rate
+            amount = qty * o.unit_price * exchange_rate
+            total += amount
+        total = round(total, 2)
+        return total
+
+    def base_quantity(self, obj):
+        if obj.transit:
+            return obj.transit.loading_base_quantity
+        return None
+
+    def l20_quantity(self, obj):
+        if obj.transit:
+            return obj.transit.locading_l20_quantity
+        return None
+
+    def loading_date(self, obj):
+        if obj.transit:
+            return obj.transit.created_at.date()
+        return None
+
+    def release_date(self, obj):
+        if obj.transit:
+            return obj.transit.release_date
+        return None
+
+    
+    def invoice_value(self, obj):
+        if obj.transit:
+            return obj.transit.invoice_value_local
+        return None
+
+    def transporter_invoice_number(self, obj):
+        if obj.transit:
+            return obj.transit.invoice_number
+        return None
+
+    def transporter_invoice_date(self, obj):
+        if obj.transit:
+            return obj.transit.invoice_date
+        return None
+        
+    def ofloading_quantity(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.off_loading_l20_quantity
+        return None
+
+    def offloading_date(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.off_loading_date
+        return None
+
+    def shortage(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.shortage
+        return None
+
+    def tolerance(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.tolerance
+        return None
+
+    def net_shortage(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.net_shortage
+        return None
+
+    def shortage_value(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.shortage_value_local
+        return None
+
+    def net_to_be_paid(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.net_to_be_paid_local
+        return None
+
+    def profitability(self, obj):
+        if obj.fullfillment:
+            return obj.fullfillment.profiltability_local
+        return None
+
+    def sales_approval(self, obj):
+        return "Approved"
+    
+     
+
+    def paid(self, obj):
+        if obj.fullfillment and not obj.fullfillment.dues_paid:
+            transporter = obj.nomination.transporter
+            try:
+                if transporter.bulk_money >= obj.fullfillment.net_to_be_paid:
+                    return format_html(
+                            "<p>Unpaid<p>"
+                        )
+            except Exception as e:
+                pass
+        elif obj.fullfillment and obj.fullfillment.dues_paid:
+            return format_html(
+                "<p>Paid<p>"
+            )
+
+        return "---"
+ 
+
+    def stage(self, obj):
+        return "Completed"
+        
+    def has_change_permission(self, request, obj=None):
+        return False
+    
+    def has_module_permission(self, request):
+        if request.user.is_authenticated:
+            if request.user.is_superuser or request.user.user_type == User.ADMIN:
+                return True
+        return False   
+
+
     
