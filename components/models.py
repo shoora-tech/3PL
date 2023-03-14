@@ -47,6 +47,8 @@ class Fuel(UUIDModel):
     currency = models.ForeignKey(Currency,on_delete=models.CASCADE, blank=True, null=True)
     station = models.ForeignKey(Station, on_delete=models.CASCADE)
     exchange_rate = models.FloatField(default=0)
+    local_exchange_rate = models.FloatField(default=1)
+
 
 
 class Transporter(UUIDModel):
@@ -74,6 +76,7 @@ class DiscountMaster(UUIDModel):
     fuel_discount = models.FloatField(default=0)
     currency = models.ForeignKey(Currency,on_delete=models.CASCADE, blank=True, null=True)
     exchange_rate = models.FloatField(default=0)
+    local_exchange_rate = models.FloatField(default=1)
     station = models.ForeignKey(Station, on_delete=models.CASCADE)
     
 
@@ -131,7 +134,10 @@ class Customer(UUIDModel):
     email = models.EmailField()
     phone = models.CharField(max_length=50)
     location = models.ManyToManyField(Location, related_name="locations", blank=True)
-    price = models.FloatField(default=0)
+    price = models.FloatField(default=0,verbose_name= "Price(USD)")
+    local_exchange_rate = models.FloatField(default=1)
+
+
 
     def __str__(self):
         return self.name
@@ -166,7 +172,7 @@ class TransporterBulkPayment(UUIDModel):
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE, related_name="transporter_payment")
     transporter = models.ForeignKey(Transporter, on_delete=models.CASCADE, related_name="transporter_payment")
     amount = models.FloatField(default=0)
-    exchange_rate = models.FloatField(default=0)
+    exchange_rate = models.FloatField(default=1)
     payment_date = models.DateField()
 
     def save(self, *args, **kwargs):
